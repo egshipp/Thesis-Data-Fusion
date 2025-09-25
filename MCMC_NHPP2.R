@@ -47,7 +47,7 @@ b_0 <- 1
 b_1 <- 3
 
 lambda <- exp(b_0 + b_1*(cov_field))
-lambda_im <- im(lambda, xcol = x_seq, yrow = y_seq)
+lambda_im <- im(t(lambda), xcol = x_seq, yrow = y_seq)
 
 nhpp_sim <- rpoispp(lambda_im)
 
