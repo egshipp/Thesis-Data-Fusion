@@ -292,6 +292,6 @@ plot(beta_post[2,], type = "l", main = "Beta 2 Trace Plot")
 par(mfrow = c(1,1))
 
 
-plot(sim$sigma_2[2,],type = "l", main = "Sigma_2 Trace Plot")
+plot(sim$sigma_2[1,],type = "l", main = "Sigma_2 Trace Plot")
 
 
