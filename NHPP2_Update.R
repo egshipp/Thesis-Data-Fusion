@@ -136,7 +136,7 @@ X_2$covariate <- cov_field_ppp$marks[nn_X_2$which]
 
 # MCMC --------------------------------------------------------------------------
 
-
+## log likelihood function
 loglike <- function(parameters, data) {
   
   log_lambda_points1 <- parameters$beta[1] + parameters$beta[2] * data$X_1$covariate + parameters$f[data$nn_index_1]
@@ -157,7 +157,27 @@ loglike <- function(parameters, data) {
   return(likelihood)
 }
 
-
+## Updating slope estimates using Metropolis Hastings MCMC
+update_betas<- function(parameters, priors, data){
+  
+  beta_cand <- rnorm(length(parameters$beta), mean = parameters$beta, sd = priors$beta_prop_sd) 
+  
+  params_top <- list(beta = beta_cand, f = parameters$f)
+  params_bottom <- list(beta = parameters$beta, f = parameters$f)
+  
+  # Posteriors
+  post_top <- loglike(params_top, data) + sum(dnorm(beta_cand, mean = priors$beta_mean, sd = priors$beta_sd, log = TRUE))
+  post_bottom <- loglike(params_bottom, data) + sum(dnorm(parameters$beta, mean = priors$beta_mean, sd = priors$beta_sd, log = TRUE))
+  
+  # Metropolis Hastings Ratio
+  log_acceptance_ratio <- post_top - post_bottom
+  
+  if(log(runif(1)) < log_acceptance_ratio) {
+    parameters$beta <- beta_cand
+  }
+  
+  return(parameters)
+}
 
 
 # Attempting --------------------------------------------------------------------
