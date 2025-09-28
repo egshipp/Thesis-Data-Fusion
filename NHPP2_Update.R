@@ -162,8 +162,8 @@ update_betas<- function(parameters, priors, data){
   
   beta_cand <- rnorm(length(parameters$beta), mean = parameters$beta, sd = priors$beta_prop_sd) 
   
-  params_top <- list(beta = beta_cand, f = parameters$f)
-  params_bottom <- list(beta = parameters$beta, f = parameters$f)
+  params_top <- list(beta = beta_cand, f = parameters$f, g = parameters$g)
+  params_bottom <- list(beta = parameters$beta, f = parameters$f, g = parameters$g)
   
   # Posteriors
   post_top <- loglike(params_top, data) + sum(dnorm(beta_cand, mean = priors$beta_mean, sd = priors$beta_sd, log = TRUE))
@@ -305,7 +305,7 @@ update_sigma_2 <- function(parameters, priors, data){
   n <- length(parameters$f)
   
   alpha_post <- priors$a_0 + n/2
-  beta_post  <- priors$b_0  + 0.5 * sum((f - priors$f_mean)^2)
+  beta_post  <- priors$b_0  + 0.5 * sum((parameters$f - priors$f_mean)^2)
   
   # Draw samples from Inverse-Gamma
   parameters$sigma_2 <- 1 / rgamma(1, shape = alpha_post, rate = beta_post)
@@ -314,14 +314,13 @@ update_sigma_2 <- function(parameters, priors, data){
   
 }
 
-
-## Updating source 2 variance using Gibbs Sampling- tau_2
+## Updating source 2 variance using Gibbs Sampling - tau_2
 
 update_tau_2 <- function(parameters, priors, data){
   n <- length(parameters$g)
   
   alpha_post <- priors$a_0 + n/2
-  beta_post  <- priors$b_0  + 0.5 * sum((g - parameters$alpha)^2)
+  beta_post  <- priors$b_0  + 0.5 * sum((parameters$g - parameters$alpha)^2)
   
   # Draw samples from Inverse-Gamma
   parameters$tau_2 <- 1 / rgamma(1, shape = alpha_post, rate = beta_post)
@@ -329,7 +328,59 @@ update_tau_2 <- function(parameters, priors, data){
   return(parameters)
   
 }
+
+## Updating source 2 mean using Gibbs Sampling - alpha
   
+update_alpha <- function(parameters, priors, data){
+  n <- length(parameters$g)
+  
+  mu_post <- (sum(g / parameters$tau_2/ + (priors$gamma/priors$phi))) / ((n/parameters$tau_2) + (1 * priors$phi))
+  sigma_post <- (1) / ((n / parameters$tau_2) + (1 / priors$phi))
+  
+  parameters$alpha <- rnorm(1, mean = mu_post, sd = sigma_post)
+  
+  return(parameters)
+}
+
+## Wrapper function
+
+driver <- function(parameters, priors, data, iters){
+  out=list()
+  out$params=parameters
+  out$priors=priors
+  out$iters=iters
+  
+  #Posterior containers
+  out$beta=matrix(NA,nrow = length(parameters$beta),ncol = iters)
+  out$f=matrix(NA, nrow = length(parameters$f), ncol = iters)
+  out$g=matrix(NA, nrow = length(parameters$g), ncol = iters) 
+  out$sigma_2=matrix(NA, nrow = 1, ncol = iters)
+  out$tau_2=matrix(NA, nrow = 1, ncol = iters)
+  out$alpha=matrix(NA, nrow = 1, ncol = iters)
+  
+  
+  for(k in 1:iters){
+    parameters <- update_betas(parameters, priors, data)
+    out$beta[,k]=parameters$beta 
+    
+    parameters <- update_f(parameters, priors, data)
+    out$f[,k] <- parameters$f
+    
+    parameters <- update_g(parameters, priors, data)
+    out$g[,k] <- parameters$g
+    
+    parameters <- update_sigma_2(parameters, priors, data)
+    out$sigma_2[,k] <- parameters$sigma_2
+    
+    parameters <- update_alpha(parameters, priors, data)
+    out$alpha[,k] <- parameters$alpha
+    
+    parameters <- update_tau_2(parameters, priors, data)
+    out$tau_2[,k] <- parameters$tau_2
+  }
+  return(out)
+}
+
 # Attempting --------------------------------------------------------------------
 
 
@@ -352,9 +403,70 @@ priors <- list(beta_mean = c(0,0),
                beta_prop_sd = c(0.1, 0.1),
                f_mean = 0,
                a_0 = 0.5,
-               b_0 = 0.5)
+               b_0 = 0.5,
+               gamma = 0.1,
+               phi = 0.1)
 
-iters <- 7500
+iters <- 1000
+
+burnin <- 0
 
 sim <- driver(parameters, priors, data, iters)
+
+beta_post <- sim$beta[, (burnin+1):iters]
+f_post <- sim$f[, (burnin+1):iters]
+sigma_2_post <- sim$sigma_2[,(burnin+1):iters]
+tau_2_post <- sim$tau_2[,(burnin+1):iters]
+
+apply(beta_post, 1, mean)
+apply(beta_post, 1, sd)
+
+mean(sigma_2_post)
+sd(sigma_2_post)
+
+mean(tau_2_post)
+sd(tau_2_post)
+
+# Posterior Plots ----------------------------------------------------------------
+posterior_lambda <- matrix(NA, nrow = nrow(X_grid), ncol = (iters-burnin))
+
+for(m in 1:(iters-burnin)){
+  beta_m <- beta_post[,m]
+  f_m <- f_post[, m]
+  
+  log_lambda_m <- beta_m[1] + beta_m[2]*covariate + f_m
+  
+  posterior_lambda[, m] <- exp(log_lambda_m)
+}
+
+lambda_mean <- rowMeans(posterior_lambda, na.rm = TRUE)
+
+lambda_mean_mat <- matrix(lambda_mean, 
+                          nrow = grid_res, 
+                          ncol = grid_res, 
+                          byrow = FALSE)
+
+
+par(mfrow = c(2,2))
+
+zlim <- range(log(lambda), log(posterior_lambda))
+
+image(x_seq, y_seq, log(lambda),
+      main = "True Intensity",
+      zlim = zlim,
+      col = terrain.colors(50))
+
+image.plot(x_seq, y_seq, log(lambda_mean_mat),
+           main = "Posterior Mean",
+           zlim = zlim,
+           col = terrain.colors(50))
+
+
+diff_mat <- log(lambda) - log(lambda_mean_mat)
+
+image.plot(x_seq, y_seq, diff_mat,
+           main = "Difference between True and Posterior",
+           col = terrain.colors(50))
+
+par(mfrow = c(1,1))
 
