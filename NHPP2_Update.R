@@ -179,7 +179,157 @@ update_betas<- function(parameters, priors, data){
   return(parameters)
 }
 
+## Updating f - Source 1 measurement error
+update_f <- function(parameters, priors, data){
+  
+  # Choosing ellipse (nu) from prior (f)
+  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$f)), Sigma = diag(parameters$sigma_2, length(parameters$f))))
+  
+  # Log likelihood threshold (finding log(y))
+  
+  u <- runif(1, min = 0, max = 1)
+  
+  log_y <- loglike(parameters, data) + log(u)
+  
+  # Draw an initial proposal for theta
+  
+  theta <- runif(1, min = 0, max = 2*pi)
+  theta_min <- theta - 2*pi
+  theta_max <- theta
+  
+  repeat {
+    # Calculate f'
+    f_prime <- as.vector(parameters$f*cos(theta) + nu*sin(theta))
+    
+    params_prime <- parameters
+    params_prime$f <- f_prime
+    
+    # Shrinking bracket
+    if(loglike(params_prime, data) > log_y){
+      parameters$f <- f_prime
+      return(parameters) 
+    } else {
+      if(theta < 0) {
+        theta_min <- theta
+      } else {
+        theta_max <- theta
+      }
+      theta <- runif(1, theta_min, theta_max)
+    }
+  }
+}
 
+## Updating f - Source 1 measurement error
+update_f <- function(parameters, priors, data){
+  
+  # Choosing ellipse (nu) from prior (f)
+  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$f)), Sigma = diag(parameters$sigma_2, length(parameters$f))))
+  
+  # Log likelihood threshold (finding log(y))
+  
+  u <- runif(1, min = 0, max = 1)
+  
+  log_y <- loglike(parameters, data) + log(u)
+  
+  # Draw an initial proposal for theta
+  
+  theta <- runif(1, min = 0, max = 2*pi)
+  theta_min <- theta - 2*pi
+  theta_max <- theta
+  
+  repeat {
+    # Calculate f'
+    f_prime <- as.vector(parameters$f*cos(theta) + nu*sin(theta))
+    
+    params_prime <- parameters
+    params_prime$f <- f_prime
+    
+    # Shrinking bracket
+    if(loglike(params_prime, data) > log_y){
+      parameters$f <- f_prime
+      return(parameters) 
+    } else {
+      if(theta < 0) {
+        theta_min <- theta
+      } else {
+        theta_max <- theta
+      }
+      theta <- runif(1, theta_min, theta_max)
+    }
+  }
+}
+
+## Updating g - Source 2 measurement error
+update_g <- function(parameters, priors, data){
+  
+  # Choosing ellipse (nu) from prior (f)
+  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$g)), Sigma = diag(parameters$tau_2, length(parameters$g))))
+  
+  # Log likelihood threshold (finding log(y))
+  
+  u <- runif(1, min = 0, max = 1)
+  
+  log_y <- loglike(parameters, data) + log(u)
+  
+  # Draw an initial proposal for theta
+  
+  theta <- runif(1, min = 0, max = 2*pi)
+  theta_min <- theta - 2*pi
+  theta_max <- theta
+  
+  repeat {
+    # Calculate f'
+    g_prime <- as.vector(parameters$g*cos(theta) + nu*sin(theta))
+    
+    params_prime <- parameters
+    params_prime$g <- g_prime
+    
+    # Shrinking bracket
+    if(loglike(params_prime, data) > log_y){
+      parameters$g <- g_prime
+      return(parameters) 
+    } else {
+      if(theta < 0) {
+        theta_min <- theta
+      } else {
+        theta_max <- theta
+      }
+      theta <- runif(1, theta_min, theta_max)
+    }
+  }
+}
+
+## Updating source 1 variance using Gibbs Sampling- sigma_2
+
+update_sigma_2 <- function(parameters, priors, data){
+  n <- length(parameters$f)
+  
+  alpha_post <- priors$a_0 + n/2
+  beta_post  <- priors$b_0  + 0.5 * sum((f - priors$f_mean)^2)
+  
+  # Draw samples from Inverse-Gamma
+  parameters$sigma_2 <- 1 / rgamma(1, shape = alpha_post, rate = beta_post)
+  
+  return(parameters)
+  
+}
+
+
+## Updating source 2 variance using Gibbs Sampling- tau_2
+
+update_tau_2 <- function(parameters, priors, data){
+  n <- length(parameters$g)
+  
+  alpha_post <- priors$a_0 + n/2
+  beta_post  <- priors$b_0  + 0.5 * sum((g - parameters$alpha)^2)
+  
+  # Draw samples from Inverse-Gamma
+  parameters$tau_2 <- 1 / rgamma(1, shape = alpha_post, rate = beta_post)
+  
+  return(parameters)
+  
+}
+  
 # Attempting --------------------------------------------------------------------
 
 
@@ -194,12 +344,13 @@ parameters <- list(beta = c(0,0),
                    f = f,
                    g = g,
                    sigma_2 = 0.2,
+                   alpha = 0.75,
                    tau_2 = 1) 
 
 priors <- list(beta_mean = c(0,0), 
                beta_sd = c(10,10), 
                beta_prop_sd = c(0.1, 0.1),
-               f_mean = 0, 
+               f_mean = 0,
                a_0 = 0.5,
                b_0 = 0.5)
 
