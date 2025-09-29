@@ -278,7 +278,7 @@ update_f <- function(parameters, priors, data){
 update_g <- function(parameters, priors, data){
   
   # Choosing ellipse (nu) from prior (f)
-  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(1, length(parameters$g)), Sigma = diag(parameters$tau_2, length(parameters$g))))
+  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(parameters$alpha, length(parameters$g)), Sigma = diag(parameters$tau_2, length(parameters$g))))
   
   # Log likelihood threshold (finding log(y))
   
@@ -349,7 +349,7 @@ update_tau_2 <- function(parameters, priors, data){
 update_alpha <- function(parameters, priors, data){
   n <- length(parameters$g)
   
-  mu_post <- (sum(g / parameters$tau_2/ + (priors$gamma/priors$phi))) / ((n/parameters$tau_2) + (1 * priors$phi))
+  mu_post <- (sum(parameters$g / parameters$tau_2) + (priors$gamma/priors$phi)) / ((n/parameters$tau_2) + (1 * priors$phi))
   sigma_post <- sqrt((1) / ((n / parameters$tau_2) + (1 / priors$phi)))
   
   parameters$alpha <- rnorm(1, mean = mu_post, sd = sigma_post)
