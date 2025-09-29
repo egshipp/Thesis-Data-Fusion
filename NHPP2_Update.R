@@ -417,9 +417,9 @@ priors <- list(beta_mean = c(0,0),
                beta_sd = c(10,10), 
                beta_prop_sd = c(0.05, 0.05),
                f_mean = 0,
-               a_0_sigma = 0.5,
-               b_0_sigma = 0.5,
-               a_0_tau = 0.5,
+               a_0_sigma = 2,
+               b_0_sigma = 1,
+               a_0_tau = 2,
                b_0_tau = 1,
                gamma = 0.5,
                phi = 10)
@@ -500,3 +500,8 @@ par(mfrow = c(1,1))
 # Trace Plots -------------------------------------------------------------------
 
 plot(sim$beta[1,], type = "l")
+plot(sim$f[1,], type = "l")
+plot(sim$g[1,], type = "l")
+plot(sim$sigma_2[1,], type = "l")
+plot(sim$tau_2[1,], type = "l")
+plot(sim$alpha[1,], type = "l")
