@@ -134,6 +134,21 @@ X_2 <- as.data.frame(nhpp_2)
 nn_X_2 <- nncross(nhpp_2, cov_field_ppp)
 X_2$covariate <- cov_field_ppp$marks[nn_X_2$which]
 
+
+par(mfrow = (c(1,2)))
+quilt.plot(X_1$x, X_1$y, X_1$covariate)
+plot(nhpp_1)
+par(mfrow = (c(1,1)))
+
+
+par(mfrow = (c(1,2)))
+quilt.plot(X_2$x, X_2$y, X_2$covariate)
+plot(nhpp_2)
+par(mfrow = (c(1,1)))
+
+quilt.plot(X_grid$x, X_grid$y, X_grid$covariate)
+
+
 # MCMC --------------------------------------------------------------------------
 
 ## log likelihood function
@@ -263,7 +278,7 @@ update_f <- function(parameters, priors, data){
 update_g <- function(parameters, priors, data){
   
   # Choosing ellipse (nu) from prior (f)
-  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$g)), Sigma = diag(parameters$tau_2, length(parameters$g))))
+  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(1, length(parameters$g)), Sigma = diag(parameters$tau_2, length(parameters$g))))
   
   # Log likelihood threshold (finding log(y))
   
@@ -304,8 +319,8 @@ update_g <- function(parameters, priors, data){
 update_sigma_2 <- function(parameters, priors, data){
   n <- length(parameters$f)
   
-  alpha_post <- priors$a_0 + n/2
-  beta_post  <- priors$b_0  + 0.5 * sum((parameters$f - priors$f_mean)^2)
+  alpha_post <- priors$a_0_sigma + n/2
+  beta_post  <- priors$b_0_sigma  + 0.5 * sum((parameters$f - priors$f_mean)^2)
   
   # Draw samples from Inverse-Gamma
   parameters$sigma_2 <- 1 / rgamma(1, shape = alpha_post, rate = beta_post)
@@ -319,8 +334,8 @@ update_sigma_2 <- function(parameters, priors, data){
 update_tau_2 <- function(parameters, priors, data){
   n <- length(parameters$g)
   
-  alpha_post <- priors$a_0 + n/2
-  beta_post  <- priors$b_0  + 0.5 * sum((parameters$g - parameters$alpha)^2)
+  alpha_post <- priors$a_0_tau + n/2
+  beta_post  <- priors$b_0_tau  + 0.5 * sum((parameters$g - parameters$alpha)^2)
   
   # Draw samples from Inverse-Gamma
   parameters$tau_2 <- 1 / rgamma(1, shape = alpha_post, rate = beta_post)
@@ -335,7 +350,7 @@ update_alpha <- function(parameters, priors, data){
   n <- length(parameters$g)
   
   mu_post <- (sum(g / parameters$tau_2/ + (priors$gamma/priors$phi))) / ((n/parameters$tau_2) + (1 * priors$phi))
-  sigma_post <- (1) / ((n / parameters$tau_2) + (1 / priors$phi))
+  sigma_post <- sqrt((1) / ((n / parameters$tau_2) + (1 / priors$phi)))
   
   parameters$alpha <- rnorm(1, mean = mu_post, sd = sigma_post)
   
@@ -400,23 +415,27 @@ parameters <- list(beta = c(0,0),
 
 priors <- list(beta_mean = c(0,0), 
                beta_sd = c(10,10), 
-               beta_prop_sd = c(0.1, 0.1),
+               beta_prop_sd = c(0.05, 0.05),
                f_mean = 0,
-               a_0 = 0.5,
-               b_0 = 0.5,
-               gamma = 0.1,
-               phi = 0.1)
+               a_0_sigma = 0.5,
+               b_0_sigma = 0.5,
+               a_0_tau = 0.5,
+               b_0_tau = 1,
+               gamma = 0.5,
+               phi = 10)
 
-iters <- 1000
+iters <- 5000
 
 burnin <- 0
 
 sim <- driver(parameters, priors, data, iters)
 
 beta_post <- sim$beta[, (burnin+1):iters]
-f_post <- sim$f[, (burnin+1):iters]
+alpha_post <- sim$alpha[,(burnin+1):iters]
 sigma_2_post <- sim$sigma_2[,(burnin+1):iters]
 tau_2_post <- sim$tau_2[,(burnin+1):iters]
+f_post <- sim$f[,(burnin+1):iters]
+g_post <- sim$g[,(burnin+1):iters]
 
 apply(beta_post, 1, mean)
 apply(beta_post, 1, sd)
@@ -427,26 +446,35 @@ sd(sigma_2_post)
 mean(tau_2_post)
 sd(tau_2_post)
 
+mean(alpha_post)
+sd(alpha_post)
+
+
 # Posterior Plots ----------------------------------------------------------------
+# Posterior lambda for both sources
 posterior_lambda <- matrix(NA, nrow = nrow(X_grid), ncol = (iters-burnin))
 
 for(m in 1:(iters-burnin)){
   beta_m <- beta_post[,m]
   f_m <- f_post[, m]
+  g_m <- g_post[, m]   # add source 2
   
-  log_lambda_m <- beta_m[1] + beta_m[2]*covariate + f_m
+  # log intensity = beta0 + beta1 * covariate + f + g
+  log_lambda_m <- beta_m[1] + beta_m[2]*covariate + f_m + g_m
   
   posterior_lambda[, m] <- exp(log_lambda_m)
 }
 
+# Posterior mean intensity
 lambda_mean <- rowMeans(posterior_lambda, na.rm = TRUE)
 
+# Reshape to grid
 lambda_mean_mat <- matrix(lambda_mean, 
                           nrow = grid_res, 
                           ncol = grid_res, 
                           byrow = FALSE)
 
-
+# Plotting
 par(mfrow = c(2,2))
 
 zlim <- range(log(lambda), log(posterior_lambda))
@@ -461,7 +489,6 @@ image.plot(x_seq, y_seq, log(lambda_mean_mat),
            zlim = zlim,
            col = terrain.colors(50))
 
-
 diff_mat <- log(lambda) - log(lambda_mean_mat)
 
 image.plot(x_seq, y_seq, diff_mat,
@@ -470,3 +497,6 @@ image.plot(x_seq, y_seq, diff_mat,
 
 par(mfrow = c(1,1))
 
+# Trace Plots -------------------------------------------------------------------
+
+plot(sim$beta[1,], type = "l")
