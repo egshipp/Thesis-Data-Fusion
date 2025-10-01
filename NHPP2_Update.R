@@ -168,7 +168,7 @@ loglike <- function(parameters, data) {
   lambda_grid2 <- exp(log_lambda_grid2)
   term4 <- sum(lambda_grid2 * data$cell_area)
   
-  likelihood <- (term1 - term2) + (term3 - term4)
+  likelihood <- sum((term1 - term2) + (term3 - term4))
   return(likelihood)
 }
 
