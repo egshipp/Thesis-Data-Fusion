@@ -95,7 +95,7 @@ loglike <- function(parameters, data) {
   lambda_grid <- exp(log_lambda_grid)
   term2 <- sum(lambda_grid * data$cell_area)
   
-  likelihood <- sum(term1 - term2)
+  likelihood <- term1 - term2
   return(likelihood)
 }
 
@@ -129,8 +129,6 @@ update_f <- function(parameters, priors, data){
   
   # Choosing ellipse (nu) from prior (f)
  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$f)), Sigma = diag(parameters$Sigma_2, length(parameters$f))))
-  
-  # nu <- rnorm(length(parameters$f), 0, sqrt(0.2))
   
   # Log likelihood threshold (finding log(y))
   

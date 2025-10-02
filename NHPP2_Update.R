@@ -55,10 +55,10 @@ nhpp_sim <- rpoispp(lambda_im)
 
 # Discretize using spatstat
 
-nhpp_discretize <- pixellate(nhpp_sim, eps = 1)
 
 par(mfrow = c(1,2))
 image.plot(x_seq, y_seq, cov_field, col = terrain.colors(100), main = "Simulated NHPP")
+nhpp_discretize <- pixellate(nhpp_sim, eps = 1)
 points(nhpp_sim)
 plot(nhpp_discretize)
 par(mfrow = c(1,1))
@@ -168,7 +168,7 @@ loglike <- function(parameters, data) {
   lambda_grid2 <- exp(log_lambda_grid2)
   term4 <- sum(lambda_grid2 * data$cell_area)
   
-  likelihood <- sum((term1 - term2) + (term3 - term4))
+  likelihood <- (term1 - term2) + (term3 - term4)
   return(likelihood)
 }
 
@@ -234,51 +234,12 @@ update_f <- function(parameters, priors, data){
   }
 }
 
-## Updating f - Source 1 measurement error
-update_f <- function(parameters, priors, data){
-  
-  # Choosing ellipse (nu) from prior (f)
-  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$f)), Sigma = diag(parameters$sigma_2, length(parameters$f))))
-  
-  # Log likelihood threshold (finding log(y))
-  
-  u <- runif(1, min = 0, max = 1)
-  
-  log_y <- loglike(parameters, data) + log(u)
-  
-  # Draw an initial proposal for theta
-  
-  theta <- runif(1, min = 0, max = 2*pi)
-  theta_min <- theta - 2*pi
-  theta_max <- theta
-  
-  repeat {
-    # Calculate f'
-    f_prime <- as.vector(parameters$f*cos(theta) + nu*sin(theta))
-    
-    params_prime <- parameters
-    params_prime$f <- f_prime
-    
-    # Shrinking bracket
-    if(loglike(params_prime, data) > log_y){
-      parameters$f <- f_prime
-      return(parameters) 
-    } else {
-      if(theta < 0) {
-        theta_min <- theta
-      } else {
-        theta_max <- theta
-      }
-      theta <- runif(1, theta_min, theta_max)
-    }
-  }
-}
-
 ## Updating g - Source 2 measurement error
 update_g <- function(parameters, priors, data){
   
-  # Choosing ellipse (nu) from prior (f)
-  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(parameters$alpha, length(parameters$g)), Sigma = diag(parameters$tau_2, length(parameters$g))))
+  # Choosing ellipse (nu) from prior (g)
+## Is this correct mean and standard deviation?
+  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$g)), Sigma = diag(parameters$tau_2, length(parameters$g))))
   
   # Log likelihood threshold (finding log(y))
   
@@ -293,7 +254,7 @@ update_g <- function(parameters, priors, data){
   theta_max <- theta
   
   repeat {
-    # Calculate f'
+    # Calculate g'
     g_prime <- as.vector(parameters$g*cos(theta) + nu*sin(theta))
     
     params_prime <- parameters
@@ -349,8 +310,9 @@ update_tau_2 <- function(parameters, priors, data){
 update_alpha <- function(parameters, priors, data){
   n <- length(parameters$g)
   
-  mu_post <- (sum(parameters$g / parameters$tau_2) + (priors$gamma/priors$phi)) / ((n/parameters$tau_2) + (1 * priors$phi))
-  sigma_post <- sqrt((1) / ((n / parameters$tau_2) + (1 / priors$phi)))
+  denom <- (n / parameters$tau_2) + (1 / priors$phi)
+  mu_post <- ( sum(parameters$g) / parameters$tau_2 + priors$gamma / priors$phi ) / denom
+  sigma_post <- sqrt(1 / denom)
   
   parameters$alpha <- rnorm(1, mean = mu_post, sd = sigma_post)
   
@@ -477,16 +439,12 @@ lambda_mean_mat <- matrix(lambda_mean,
 # Plotting
 par(mfrow = c(2,2))
 
-zlim <- range(log(lambda), log(posterior_lambda))
-
 image(x_seq, y_seq, log(lambda),
       main = "True Intensity",
-      zlim = zlim,
       col = terrain.colors(50))
 
 image.plot(x_seq, y_seq, log(lambda_mean_mat),
            main = "Posterior Mean",
-           zlim = zlim,
            col = terrain.colors(50))
 
 diff_mat <- log(lambda) - log(lambda_mean_mat)
@@ -499,9 +457,18 @@ par(mfrow = c(1,1))
 
 # Trace Plots -------------------------------------------------------------------
 
-plot(sim$beta[1,], type = "l")
-plot(sim$f[1,], type = "l")
-plot(sim$g[1,], type = "l")
-plot(sim$sigma_2[1,], type = "l")
-plot(sim$tau_2[1,], type = "l")
-plot(sim$alpha[1,], type = "l")
+plot(sim$beta[1,], type = "l", main = "Beta Trace Plot")
+plot(sim$f[1,], type = "l", main = "f trace plot")
+plot(sim$g[1,], type = "l", main = "g trace plot")
+plot(sim$sigma_2[1,], type = "l", main = "sigma_2 trace plot")
+plot(sim$tau_2[1,], type = "l", main = "tau_2 trace plot")
+plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
+
+# Testing -------------------------------------------------------------------------
+loglike(parameters, data)
+update_betas(parameters, priors, data)
+update_f(parameters, priors, data)
+update_g(parameters, priors, data)
+update_sigma_2(parameters, priors, data)
+update_alpha(parameters, priors, data)
+update_tau_2(parameters, priors, data)

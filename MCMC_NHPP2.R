@@ -118,7 +118,7 @@ X_grid <- as.data.frame(coords)
 colnames(X_grid) <- c("x", "y")
 X_grid$covariate <- covariate
 
-X_1 <- as.data.frame(nhpp_1)
+X_1 <- as.vector(nhpp_1)
 nn_X_1 <- nncross(nhpp_1, cov_field_ppp)
 X_1$covariate <- cov_field_ppp$marks[nn_X_1$which]
 
@@ -271,7 +271,7 @@ update_f_2 <- function(beta, f_2_current, f_1, X_1, X_2, X_grid, cell_area, mu, 
 }
 
 # Wrapper function
-driver_joint <- function(X_1, X_2, X_grid, f_1, f_2, 
+driver <- function(X_1, X_2, X_grid, f_1, f_2, 
                          sigma_1, sigma_2, params, cell_area, priors,  proposal_sd, iters){
   out=list()
   out$params=params
