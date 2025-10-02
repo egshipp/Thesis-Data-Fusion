@@ -294,4 +294,3 @@ par(mfrow = c(1,1))
 
 plot(sim$sigma_2[1,],type = "l", main = "Sigma_2 Trace Plot")
 
-

@@ -234,51 +234,11 @@ update_f <- function(parameters, priors, data){
   }
 }
 
-## Updating f - Source 1 measurement error
-update_f <- function(parameters, priors, data){
-  
-  # Choosing ellipse (nu) from prior (f)
-  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$f)), Sigma = diag(parameters$sigma_2, length(parameters$f))))
-  
-  # Log likelihood threshold (finding log(y))
-  
-  u <- runif(1, min = 0, max = 1)
-  
-  log_y <- loglike(parameters, data) + log(u)
-  
-  # Draw an initial proposal for theta
-  
-  theta <- runif(1, min = 0, max = 2*pi)
-  theta_min <- theta - 2*pi
-  theta_max <- theta
-  
-  repeat {
-    # Calculate f'
-    f_prime <- as.vector(parameters$f*cos(theta) + nu*sin(theta))
-    
-    params_prime <- parameters
-    params_prime$f <- f_prime
-    
-    # Shrinking bracket
-    if(loglike(params_prime, data) > log_y){
-      parameters$f <- f_prime
-      return(parameters) 
-    } else {
-      if(theta < 0) {
-        theta_min <- theta
-      } else {
-        theta_max <- theta
-      }
-      theta <- runif(1, theta_min, theta_max)
-    }
-  }
-}
-
 ## Updating g - Source 2 measurement error
 update_g <- function(parameters, priors, data){
   
   # Choosing ellipse (nu) from prior (f)
-  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(parameters$alpha, length(parameters$g)), Sigma = diag(parameters$tau_2, length(parameters$g))))
+  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$g)), Sigma = diag(parameters$tau_2, length(parameters$g))))
   
   # Log likelihood threshold (finding log(y))
   
@@ -293,8 +253,8 @@ update_g <- function(parameters, priors, data){
   theta_max <- theta
   
   repeat {
-    # Calculate f'
-    g_prime <- as.vector(parameters$g*cos(theta) + nu*sin(theta))
+    # Calculate g'
+    g_prime <- as.vector((parameters$g - parameters$alpha)*cos(theta) + nu*sin(theta)) + parameters$alpha 
     
     params_prime <- parameters
     params_prime$g <- g_prime
@@ -349,7 +309,7 @@ update_tau_2 <- function(parameters, priors, data){
 update_alpha <- function(parameters, priors, data){
   n <- length(parameters$g)
   
-  mu_post <- (sum(parameters$g / parameters$tau_2) + (priors$gamma/priors$phi)) / ((n/parameters$tau_2) + (1 * priors$phi))
+  mu_post <- (sum(parameters$g) / parameters$tau_2)/ ((n/parameters$tau_2) + (1 * priors$phi))
   sigma_post <- sqrt((1) / ((n / parameters$tau_2) + (1 / priors$phi)))
   
   parameters$alpha <- rnorm(1, mean = mu_post, sd = sigma_post)
@@ -384,8 +344,8 @@ driver <- function(parameters, priors, data, iters){
     parameters <- update_g(parameters, priors, data)
     out$g[,k] <- parameters$g
     
-    parameters <- update_sigma_2(parameters, priors, data)
-    out$sigma_2[,k] <- parameters$sigma_2
+   # parameters <- update_sigma_2(parameters, priors, data)
+   # out$sigma_2[,k] <- parameters$sigma_2
     
     parameters <- update_alpha(parameters, priors, data)
     out$alpha[,k] <- parameters$alpha
@@ -409,7 +369,7 @@ data <- list(X_grid = X_grid,
 parameters <- list(beta = c(0,0),
                    f = f,
                    g = g,
-                   sigma_2 = 0.2,
+                   sigma_2 = 0.01,
                    alpha = 0.75,
                    tau_2 = 1) 
 
@@ -421,12 +381,12 @@ priors <- list(beta_mean = c(0,0),
                b_0_sigma = 1,
                a_0_tau = 2,
                b_0_tau = 1,
-               gamma = 0.5,
+               # gamma = 0.5,
                phi = 10)
 
 iters <- 5000
 
-burnin <- 0
+burnin <- 3000
 
 sim <- driver(parameters, priors, data, iters)
 
@@ -460,7 +420,7 @@ for(m in 1:(iters-burnin)){
   g_m <- g_post[, m]   # add source 2
   
   # log intensity = beta0 + beta1 * covariate + f + g
-  log_lambda_m <- beta_m[1] + beta_m[2]*covariate + f_m + g_m
+  log_lambda_m <- beta_m[1] + beta_m[2]*covariate 
   
   posterior_lambda[, m] <- exp(log_lambda_m)
 }
@@ -477,16 +437,14 @@ lambda_mean_mat <- matrix(lambda_mean,
 # Plotting
 par(mfrow = c(2,2))
 
-zlim <- range(log(lambda), log(posterior_lambda))
+#zlim <- range(log(lambda), log(posterior_lambda))
 
 image(x_seq, y_seq, log(lambda),
       main = "True Intensity",
-      zlim = zlim,
       col = terrain.colors(50))
 
 image.plot(x_seq, y_seq, log(lambda_mean_mat),
            main = "Posterior Mean",
-           zlim = zlim,
            col = terrain.colors(50))
 
 diff_mat <- log(lambda) - log(lambda_mean_mat)
@@ -497,9 +455,11 @@ image.plot(x_seq, y_seq, diff_mat,
 
 par(mfrow = c(1,1))
 
+plot(log(lambda), log(lambda_mean_mat))
+
 # Trace Plots -------------------------------------------------------------------
 
-plot(sim$beta[1,], type = "l")
+plot(sim$beta[2,], type = "l")
 plot(sim$f[1,], type = "l")
 plot(sim$g[1,], type = "l")
 plot(sim$sigma_2[1,], type = "l")
