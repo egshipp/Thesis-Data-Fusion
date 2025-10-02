@@ -311,7 +311,7 @@ update_alpha <- function(parameters, priors, data){
   n <- length(parameters$g)
   
   denom <- (n / parameters$tau_2) + (1 / priors$phi)
-  mu_post <- ( sum(parameters$g) / parameters$tau_2 + priors$gamma / priors$phi ) / denom
+  mu_post <- ( sum(parameters$g) / parameters$tau_2 / priors$phi ) / denom
   sigma_post <- sqrt(1 / denom)
   
   parameters$alpha <- rnorm(1, mean = mu_post, sd = sigma_post)
@@ -383,7 +383,6 @@ priors <- list(beta_mean = c(0,0),
                b_0_sigma = 1,
                a_0_tau = 2,
                b_0_tau = 1,
-               gamma = 0.5,
                phi = 10)
 
 iters <- 5000
