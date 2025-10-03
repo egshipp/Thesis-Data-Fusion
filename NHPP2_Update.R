@@ -238,7 +238,6 @@ update_f <- function(parameters, priors, data){
 update_g <- function(parameters, priors, data){
   
   # Choosing ellipse (nu) from prior (g)
-## Is this correct mean and standard deviation?
   nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$g)), Sigma = diag(parameters$tau_2, length(parameters$g))))
   
   # Log likelihood threshold (finding log(y))
@@ -337,22 +336,22 @@ driver <- function(parameters, priors, data, iters){
   
   
   for(k in 1:iters){
-    parameters <- update_betas(parameters, priors, data)
-    out$beta[,k]=parameters$beta 
-    
-    parameters <- update_f(parameters, priors, data)
+    parameters <- update_betas(parameters, priors, data) # not converging correctly
+    out$beta[,k]=parameters$beta
+
+    parameters <- update_f(parameters, priors, data) # converging correctly
     out$f[,k] <- parameters$f
-    
-    parameters <- update_g(parameters, priors, data)
+
+    parameters <- update_g(parameters, priors, data) # converging correctly
     out$g[,k] <- parameters$g
-    
-    parameters <- update_sigma_2(parameters, priors, data)
+
+    parameters <- update_sigma_2(parameters, priors, data) # converging correctly
     out$sigma_2[,k] <- parameters$sigma_2
-    
-    parameters <- update_alpha(parameters, priors, data)
+
+    parameters <- update_alpha(parameters, priors, data) # converging correctly
     out$alpha[,k] <- parameters$alpha
-    
-    parameters <- update_tau_2(parameters, priors, data)
+
+    parameters <- update_tau_2(parameters, priors, data) # converging correctly
     out$tau_2[,k] <- parameters$tau_2
   }
   return(out)
@@ -371,13 +370,13 @@ data <- list(X_grid = X_grid,
 parameters <- list(beta = c(0,0),
                    f = f,
                    g = g,
-                   sigma_2 = 0.2,
+                   sigma_2 = 0.01,
                    alpha = 0.75,
                    tau_2 = 1) 
 
 priors <- list(beta_mean = c(0,0), 
                beta_sd = c(10,10), 
-               beta_prop_sd = c(0.05, 0.05),
+               beta_prop_sd = c(0.075, 0.075),
                f_mean = 0,
                a_0_sigma = 2,
                b_0_sigma = 1,
@@ -410,6 +409,12 @@ sd(tau_2_post)
 mean(alpha_post)
 sd(alpha_post)
 
+mean(f_post)
+sd(f_post)
+   
+mean(g_post)
+sd(g_post)
+
 
 # Posterior Plots ----------------------------------------------------------------
 # Posterior lambda for both sources
@@ -421,7 +426,7 @@ for(m in 1:(iters-burnin)){
   g_m <- g_post[, m]   # add source 2
   
   # log intensity = beta0 + beta1 * covariate + f + g
-  log_lambda_m <- beta_m[1] + beta_m[2]*covariate + f_m + g_m
+  log_lambda_m <- beta_m[1] + beta_m[2]*covariate
   
   posterior_lambda[, m] <- exp(log_lambda_m)
 }
