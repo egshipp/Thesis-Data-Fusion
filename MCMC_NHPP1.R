@@ -65,12 +65,12 @@ par(mfrow = c(1,2))
 par(mfrow = c(1,1))
 
 # Creating f 
-f_Sigma <- 0.01
+f_sigma <- 0.01
 nrow <- length(nhpp_discretize$yrow)
 ncol <- length(nhpp_discretize$xcol)
 
-f_mu <- -0.5 * f_Sigma^2
-f <- rnorm(nrow * ncol, mean = f_mu, sd = f_Sigma)
+f_mu <- -0.5 * f_sigma^2
+f <- rnorm(nrow * ncol, mean = f_mu, sd = f_sigma)
 exp_f <- exp(f)
 
 ## MCMC 
@@ -128,7 +128,7 @@ update_betas <- function(parameters, priors, data){
 update_f <- function(parameters, priors, data){
   
   # Choosing ellipse (nu) from prior (f)
- nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$f)), Sigma = diag(parameters$Sigma_2, length(parameters$f))))
+ nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$f)), Sigma = diag(parameters$sigma_2, length(parameters$f))))
   
   # Log likelihood threshold (finding log(y))
   
@@ -170,7 +170,7 @@ update_sigma_2 <- function(parameters, priors, data){
   n <- length(parameters$f)
   
   alpha_post <- priors$a_0 + n/2
-  beta_post  <- priors$b_0  + 0.5 * sum((f - priors$f_mean)^2)
+  beta_post  <- priors$b_0  + 0.5 * sum((parameters$f - priors$f_mean)^2)
   
   # Draw samples from Inverse-Gamma
   parameters$sigma_2 <- 1 / rgamma(1, shape = alpha_post, rate = beta_post)
@@ -213,7 +213,7 @@ data <- list(X_grid = X_grid,
 
 parameters <- list(beta = c(0,0),
                    f = f,
-                   Sigma_2 = 0.2) 
+                   sigma_2 = 0.2) 
 
 priors <- list(beta_mean = c(0,0), 
                beta_sd = c(10,10), 
