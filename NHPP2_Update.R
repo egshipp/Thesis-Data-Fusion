@@ -67,7 +67,7 @@ par(mfrow = c(1,1))
 # Source 1  --------------------------------------------------------------------
 
 set.seed(111)
-sigma_2 <- 0.01
+sigma_2 <- 0.1
 nrow <- length(nhpp_discretize$yrow)
 ncol <- length(nhpp_discretize$xcol)
 
@@ -91,7 +91,7 @@ par(mfrow=(c(1,1)))
 
 # Source 2 ----------------------------------------------------------------------
 
-tau_2 <- 1
+tau_2 <- 0.5
 alpha <- 0.75
 
 g <- rnorm(nrow * ncol, mean = alpha, sd = tau_2)
@@ -147,7 +147,6 @@ plot(nhpp_2)
 par(mfrow = (c(1,1)))
 
 quilt.plot(X_grid$x, X_grid$y, X_grid$covariate)
-
 
 # MCMC --------------------------------------------------------------------------
 
@@ -339,19 +338,19 @@ driver <- function(parameters, priors, data, iters){
     parameters <- update_betas(parameters, priors, data) # not converging correctly
     out$beta[,k]=parameters$beta
 
-    parameters <- update_f(parameters, priors, data) # converging correctly
+    parameters <- update_f(parameters, priors, data) # not converging correctly
     out$f[,k] <- parameters$f
 
-    parameters <- update_g(parameters, priors, data) # converging correctly
+    parameters <- update_g(parameters, priors, data) # maybe converging correctly
     out$g[,k] <- parameters$g
 
-    parameters <- update_sigma_2(parameters, priors, data) # converging correctly
+    parameters <- update_sigma_2(parameters, priors, data) # not converging correctly
     out$sigma_2[,k] <- parameters$sigma_2
 
-    parameters <- update_alpha(parameters, priors, data) # converging correctly
+    parameters <- update_alpha(parameters, priors, data) # not converging correctly
     out$alpha[,k] <- parameters$alpha
 
-    parameters <- update_tau_2(parameters, priors, data) # converging correctly
+    parameters <- update_tau_2(parameters, priors, data) # not converging correctly
     out$tau_2[,k] <- parameters$tau_2
   }
   return(out)
@@ -370,9 +369,9 @@ data <- list(X_grid = X_grid,
 parameters <- list(beta = c(0,0),
                    f = f,
                    g = g,
-                   sigma_2 = 0.01,
+                   sigma_2 = 0.1,
                    alpha = 0.75,
-                   tau_2 = 1) 
+                   tau_2 = 0.5) 
 
 priors <- list(beta_mean = c(0,0), 
                beta_sd = c(10,10), 
@@ -476,3 +475,12 @@ update_g(parameters, priors, data)
 update_sigma_2(parameters, priors, data)
 update_alpha(parameters, priors, data)
 update_tau_2(parameters, priors, data)
+
+g_mean <- rowMeans(sim$g, na.rm = TRUE)
+g_mean_mat <- matrix(g_mean, nrow = grid_res, ncol = grid_res, byrow = FALSE)
+g_true_mat <- matrix(g, nrow = grid_res, ncol = grid_res, byrow = FALSE)
+
+par(mfrow = c(1,2))
+image.plot(x_seq, y_seq, g_true_mat, main = "True g(s)", col = terrain.colors(50))
+image.plot(x_seq, y_seq, g_mean_mat, main = "Posterior Mean g(s)", col = terrain.colors(50))
+par(mfrow = c(1,1))
