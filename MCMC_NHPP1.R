@@ -73,6 +73,12 @@ f_mu <- -0.5 * f_sigma^2
 f <- rnorm(nrow * ncol, mean = f_mu, sd = f_sigma)
 exp_f <- exp(f)
 
+lambda_f <- exp(b_0 + b_1*(cov_field) + f)
+lambda_f_im <- im(t(lambda_f), xcol = x_seq, yrow = y_seq)
+nhpp_f <- rpoispp(lambda_f_im)
+plot(nhpp_f)
+plot(nhpp_sim)
+
 ## MCMC 
   
 # Creating X and X_grid data frames
@@ -81,7 +87,7 @@ colnames(X_grid) <- c("x", "y")
 X_grid$covariate <- covariate
 
 X <- as.data.frame(nhpp_sim)
-nn_X <- nncross(nhpp_sim, cov_field_ppp)
+nn_X <- nncross(nhpp_f, cov_field_ppp)
 X$covariate <- cov_field_ppp$marks[nn_X$which]
 
 #Log-Likelihood Function
