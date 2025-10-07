@@ -19,8 +19,10 @@ y_seq <- seq(win$yrange[1] + cell_size/2,
              win$yrange[2] - cell_size/2,
              by = cell_size)
 
-coords <- as.matrix(expand.grid(x_seq, y_seq))
-grid_coords <- expand.grid(x = x_seq, y = y_seq)
+# coords <- as.matrix(expand.grid(x_seq, y_seq))
+coords <- as.matrix(expand.grid(y_seq, x_seq))
+# grid_coords <- expand.grid(x = x_seq, y = y_seq)
+grid_coords <- expand.grid(x = y_seq, y = x_seq)
 
 dists <- as.matrix(dist(coords))
 n <- nrow(coords)
@@ -49,7 +51,7 @@ b_0 <- 1
 b_1 <- 3
 
 lambda <- exp(b_0 + b_1*(cov_field))
-lambda_im <- im(t(lambda), xcol = x_seq, yrow = y_seq)
+lambda_im <- im(lambda, xcol = x_seq, yrow = y_seq)
 
 nhpp_sim <- rpoispp(lambda_im)
 
@@ -73,11 +75,12 @@ ncol <- length(nhpp_discretize$xcol)
 
 mu_1 <- -0.5 * sigma_2^2
 f <- rnorm(nrow * ncol, mean = mu_1, sd = sigma_2)
-exp_f <- exp(f)
+# exp_f <- exp(f)
 
-lambda_1 <- nhpp_discretize * exp_f
-
-nhpp_1 <- rpoispp(lambda_1)
+lambda_1 <- exp(b_0 + b_1*(cov_field) + f)
+  #nhpp_discretize * exp_f
+lambda_1_im <- im(lambda_1, xcol = x_seq, yrow = y_seq)
+nhpp_1 <- rpoispp(lambda_1_im)
 
 par(mfrow=(c(1,2)))
 plot(nhpp_discretize)
@@ -90,26 +93,28 @@ plot(nhpp_1)
 par(mfrow=(c(1,1)))
 
 # Source 2 ----------------------------------------------------------------------
-
-tau_2 <- 0.5
-alpha <- 0.75
-
-g <- rnorm(nrow * ncol, mean = alpha, sd = tau_2)
-exp_g <- exp(g)
-
-lambda_2 <- nhpp_discretize * exp_g
-
-nhpp_2 <- rpoispp(lambda_2)
-
-par(mfrow=(c(1,2)))
-plot(nhpp_discretize)
-plot(lambda_2)
-par(mfrow=(c(1,1)))
-
-par(mfrow=(c(1,2)))
-plot(nhpp_sim)
-plot(nhpp_2)
-par(mfrow=(c(1,1)))
+  
+  tau_2 <- 0.5
+  alpha <- 0.75
+  
+  g <- rnorm(nrow * ncol, mean = alpha, sd = tau_2)
+  # exp_g <- exp(g)
+  
+  lambda_2 <- exp(b_0 + b_1*(cov_field) + g)
+    # nhpp_discretize * exp_g
+  lambda_2_im <- im(lambda_2, xcol = x_seq, yrow = y_seq)
+  
+  nhpp_2 <- rpoispp(lambda_2_im)
+  
+  par(mfrow=(c(1,2)))
+  plot(nhpp_discretize)
+  plot(lambda_2)
+  par(mfrow=(c(1,1)))
+  
+  par(mfrow=(c(1,2)))
+  plot(nhpp_sim)
+  plot(nhpp_2)
+  par(mfrow=(c(1,1)))
 
 par(mfrow = (c(1,3)))
 plot(nhpp_sim)
@@ -431,7 +436,7 @@ posterior_lambda <- matrix(NA, nrow = nrow(X_grid), ncol = (iters-burnin))
 for(m in 1:(iters-burnin)){
   beta_m <- beta_post[,m]
   f_m <- f_post[, m]
-  g_m <- g_post[, m]   # add source 2
+  # g_m <- g_post[, m]   # add source 2
   
   # log intensity = beta0 + beta1 * covariate + f + g
   log_lambda_m <- beta_m[1] + beta_m[2]*covariate
@@ -471,10 +476,10 @@ par(mfrow = c(1,1))
 
 plot(sim$beta[1,], type = "l", main = "Beta Trace Plot")
 plot(sim$f[1,], type = "l", main = "f trace plot")
-plot(sim$g[1,], type = "l", main = "g trace plot")
+# plot(sim$g[1,], type = "l", main = "g trace plot")
 plot(sim$sigma_2[1,], type = "l", main = "sigma_2 trace plot")
-plot(sim$tau_2[1,], type = "l", main = "tau_2 trace plot")
-plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
+# plot(sim$tau_2[1,], type = "l", main = "tau_2 trace plot")
+# plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
 
 # Testing -------------------------------------------------------------------------
 loglike(parameters, data)
