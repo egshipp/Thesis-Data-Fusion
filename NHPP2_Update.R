@@ -47,8 +47,8 @@ image.plot(x_seq, y_seq, cov_field, col = terrain.colors(100), main = "Simulated
 
 
 # Simulate NHPP
-b_0 <- 1
-b_1 <- 3
+b_0 <- 0.5
+b_1 <- 2
 
 lambda <- exp(b_0 + b_1*(cov_field))
 lambda_im <- im(lambda, xcol = x_seq, yrow = y_seq)
@@ -389,9 +389,9 @@ priors <- list(beta_mean = c(0,0),
                phi = 10
                )
 
-iters <- 5000
+iters <- 10000
 
-burnin <- 0
+burnin <- 3000
 
 sim <- driver(parameters, priors, data, iters)
 
@@ -452,11 +452,11 @@ image(x_seq, y_seq, log(lambda),
       main = "True Intensity",
       col = terrain.colors(50))
 
-image.plot(x_seq, y_seq, log(lambda_mean_mat),
+image.plot(x_seq, y_seq, log(t(lambda_mean_mat)),
            main = "Posterior Mean",
            col = terrain.colors(50))
 
-diff_mat <- log(lambda) - log(lambda_mean_mat)
+diff_mat <- log(lambda) - log(t(lambda_mean_mat))
 
 image.plot(x_seq, y_seq, diff_mat,
            main = "Difference between True and Posterior",
@@ -472,21 +472,3 @@ plot(sim$g[1,], type = "l", main = "g trace plot")
 plot(sim$sigma_2[1,], type = "l", main = "sigma_2 trace plot")
 plot(sim$tau_2[1,], type = "l", main = "tau_2 trace plot")
 plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
-
-# Testing -------------------------------------------------------------------------
-loglike(parameters, data)
-update_betas(parameters, priors, data)
-update_f(parameters, priors, data)
-update_g(parameters, priors, data)
-update_sigma_2(parameters, priors, data)
-update_alpha(parameters, priors, data)
-update_tau_2(parameters, priors, data)
-
-g_mean <- rowMeans(sim$g, na.rm = TRUE)
-g_mean_mat <- matrix(g_mean, nrow = grid_res, ncol = grid_res, byrow = FALSE)
-g_true_mat <- matrix(g, nrow = grid_res, ncol = grid_res, byrow = FALSE)
-
-par(mfrow = c(1,2))
-image.plot(x_seq, y_seq, g_true_mat, main = "True g(s)", col = terrain.colors(50))
-image.plot(x_seq, y_seq, g_mean_mat, main = "Posterior Mean g(s)", col = terrain.colors(50))
-par(mfrow = c(1,1))
