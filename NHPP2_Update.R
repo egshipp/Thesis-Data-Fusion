@@ -421,10 +421,7 @@ posterior_lambda <- matrix(NA, nrow = nrow(X_grid), ncol = (iters-burnin))
 
 for(m in 1:(iters-burnin)){
   beta_m <- beta_post[,m]
-  f_m <- f_post[, m]
-  # g_m <- g_post[, m]   # add source 2
   
-  # log intensity = beta0 + beta1 * covariate + f + g
   log_lambda_m <- beta_m[1] + beta_m[2]*covariate
   
   posterior_lambda[, m] <- exp(log_lambda_m)
