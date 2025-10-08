@@ -311,7 +311,7 @@ update_alpha <- function(parameters, priors, data){
   n <- length(parameters$g)
 
   denom <- (n / parameters$tau_2) + (1 / priors$phi)
-  mu_post <- ( sum(parameters$g) / parameters$tau_2 ) / denom
+  mu_post <- (( sum(parameters$g) / parameters$tau_2 )) / denom
   sigma_post <- sqrt(1 / denom)
 
   parameters$alpha <- rnorm(1, mean = mu_post, sd = sigma_post)
@@ -459,17 +459,11 @@ par(mfrow = c(1,1))
 
 # Trace Plots -------------------------------------------------------------------
 
-<<<<<<< HEAD
-plot(sim$beta[1,], type = "l", main = "Beta Trace Plot")
-#plot(sim$f[1,], type = "l", main = "f trace plot")
-=======
 plot(sim$beta[1,], type = "l", main = "Beta 1 Trace Plot")
 plot(sim$beta[2,], type = "l", main = "Beta 2 Trace Plot")
-plot(sim$f[1,], type = "l", main = "f trace plot")
->>>>>>> a43c9952ebaf3fea6279f37732461e8637cc4158
+# plot(sim$f[1,], type = "l", main = "f trace plot")
 plot(sim$g[1,], type = "l", main = "g trace plot")
 #plot(sim$sigma_2[1,], type = "l", main = "sigma_2 trace plot")
 plot(sim$tau_2[1,], type = "l", main = "tau_2 trace plot")
 plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
 
-plot(apply(sim$g, 2, mean), type = "l", main = "g trace plot")
