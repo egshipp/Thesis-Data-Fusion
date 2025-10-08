@@ -72,7 +72,7 @@ nrow <- length(nhpp_discretize$yrow)
 ncol <- length(nhpp_discretize$xcol)
 
 mu_1 <- -0.5 * sigma_2^2
-f <- rnorm(nrow * ncol, mean = mu_1, sd = sigma_2)
+f <- rnorm(nrow * ncol, mean = 0, sd = 0)
 exp_f <- exp(f)
 
 lambda_1 <- nhpp_discretize * exp_f
@@ -90,7 +90,7 @@ par(mfrow=(c(1,1)))
 
 # Source 2 ----------------------------------------------------------------------
 
-tau_2 <- 0.5
+tau_2 <- 0.4
 alpha <- 0.75
   
 g <- rnorm(nrow * ncol, mean = alpha, sd = tau_2)
@@ -193,44 +193,44 @@ update_betas<- function(parameters, priors, data){
 }
 
 ## Updating f - Source 1 measurement error
-update_f <- function(parameters, priors, data){
-  
-  # Choosing ellipse (nu) from prior (f)
-  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$f)), Sigma = diag(parameters$sigma_2, length(parameters$f))))
-  
-  # Log likelihood threshold (finding log(y))
-  
-  u <- runif(1, min = 0, max = 1)
-  
-  log_y <- loglike(parameters, data) + log(u)
-  
-  # Draw an initial proposal for theta
-  
-  theta <- runif(1, min = 0, max = 2*pi)
-  theta_min <- theta - 2*pi
-  theta_max <- theta
-  
-  repeat {
-    # Calculate f'
-    f_prime <- as.vector(parameters$f*cos(theta) + nu*sin(theta))
-    
-    params_prime <- parameters
-    params_prime$f <- f_prime
-    
-    # Shrinking bracket
-    if(loglike(params_prime, data) > log_y){
-      parameters$f <- f_prime
-      return(parameters) 
-    } else {
-      if(theta < 0) {
-        theta_min <- theta
-      } else {
-        theta_max <- theta
-      }
-      theta <- runif(1, theta_min, theta_max)
-    }
-  }
-}
+# update_f <- function(parameters, priors, data){
+#   
+#   # Choosing ellipse (nu) from prior (f)
+#   nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$f)), Sigma = diag(parameters$sigma_2, length(parameters$f))))
+#   
+#   # Log likelihood threshold (finding log(y))
+#   
+#   u <- runif(1, min = 0, max = 1)
+#   
+#   log_y <- loglike(parameters, data) + log(u)
+#   
+#   # Draw an initial proposal for theta
+#   
+#   theta <- runif(1, min = 0, max = 2*pi)
+#   theta_min <- theta - 2*pi
+#   theta_max <- theta
+#   
+#   repeat {
+#     # Calculate f'
+#     f_prime <- as.vector(parameters$f*cos(theta) + nu*sin(theta))
+#     
+#     params_prime <- parameters
+#     params_prime$f <- f_prime
+#     
+#     # Shrinking bracket
+#     if(loglike(params_prime, data) > log_y){
+#       parameters$f <- f_prime
+#       return(parameters) 
+#     } else {
+#       if(theta < 0) {
+#         theta_min <- theta
+#       } else {
+#         theta_max <- theta
+#       }
+#       theta <- runif(1, theta_min, theta_max)
+#     }
+#   }
+# }
 
 
 # Updating g - Source 2 measurement error
@@ -275,18 +275,18 @@ update_g <- function(parameters, priors, data){
 
 ## Updating source 1 variance using Gibbs Sampling- sigma_2
 
-update_sigma_2 <- function(parameters, priors, data){
-  n <- length(parameters$f)
-  
-  alpha_post <- priors$a_0_sigma + n/2
-  beta_post  <- priors$b_0_sigma  + 0.5 * sum((parameters$f - priors$f_mean)^2)
-  
-  # Draw samples from Inverse-Gamma
-  parameters$sigma_2 <- 1 / rgamma(1, shape = alpha_post, rate = beta_post)
-  
-  return(parameters)
-  
-}
+# update_sigma_2 <- function(parameters, priors, data){
+#   n <- length(parameters$f)
+#   
+#   alpha_post <- priors$a_0_sigma + n/2
+#   beta_post  <- priors$b_0_sigma  + 0.5 * sum((parameters$f - priors$f_mean)^2)
+#   
+#   # Draw samples from Inverse-Gamma
+#   parameters$sigma_2 <- 1 / rgamma(1, shape = alpha_post, rate = beta_post)
+#   
+#   return(parameters)
+#   
+# }
 
 # Updating source 2 variance using Gibbs Sampling - tau_2
 
@@ -327,7 +327,7 @@ driver <- function(parameters, priors, data, iters){
   
   #Posterior containers
   out$beta=matrix(NA,nrow = length(parameters$beta),ncol = iters)
-  out$f=matrix(NA, nrow = length(parameters$f), ncol = iters)
+  # out$f=matrix(NA, nrow = length(parameters$f), ncol = iters)
   out$g=matrix(NA, nrow = length(parameters$g), ncol = iters)
   out$sigma_2=matrix(NA, nrow = 1, ncol = iters)
   out$tau_2=matrix(NA, nrow = 1, ncol = iters)
@@ -337,14 +337,14 @@ driver <- function(parameters, priors, data, iters){
     parameters <- update_betas(parameters, priors, data) 
     out$beta[,k]=parameters$beta
 
-    parameters <- update_f(parameters, priors, data) 
-    out$f[,k] <- parameters$f
+    # parameters <- update_f(parameters, priors, data) 
+    # out$f[,k] <- parameters$f
 
     parameters <- update_g(parameters, priors, data) # g REMOVED
     out$g[,k] <- parameters$g
 
-    parameters <- update_sigma_2(parameters, priors, data) 
-    out$sigma_2[,k] <- parameters$sigma_2
+    # parameters <- update_sigma_2(parameters, priors, data) 
+    # out$sigma_2[,k] <- parameters$sigma_2
 
     parameters <- update_alpha(parameters, priors, data) # g REMOVED
     out$alpha[,k] <- parameters$alpha
@@ -360,17 +360,17 @@ driver <- function(parameters, priors, data, iters){
 
 data <- list(X_grid = X_grid, 
              X_1 = X_1, 
-            X_2 = X_2,
+             X_2 = X_2,
              cell_area  = (diff(win$xrange) / grid_res) * (diff(win$yrange) / grid_res),
              nn_index_1 = nn_X_1$which,
-            nn_index_2 = nn_X_2$which)
+             nn_index_2 = nn_X_2$which)
 
 parameters <- list(beta = c(0,0),
-                   f = f,
+                   # f = f,
                    g = g,
-                   sigma_2 = 0.1,
+                   # sigma_2 = 0.1,
                    alpha = 0.75,
-                   tau_2 = 0.5)
+                   tau_2 = 0.4)
 
 priors <- list(beta_mean = c(0,0), 
                beta_sd = c(10,10), 
@@ -461,8 +461,8 @@ par(mfrow = c(1,1))
 # Trace Plots -------------------------------------------------------------------
 
 plot(sim$beta[1,], type = "l", main = "Beta Trace Plot")
-plot(sim$f[1,], type = "l", main = "f trace plot")
+#plot(sim$f[1,], type = "l", main = "f trace plot")
 plot(sim$g[1,], type = "l", main = "g trace plot")
-plot(sim$sigma_2[1,], type = "l", main = "sigma_2 trace plot")
+#plot(sim$sigma_2[1,], type = "l", main = "sigma_2 trace plot")
 plot(sim$tau_2[1,], type = "l", main = "tau_2 trace plot")
 plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
