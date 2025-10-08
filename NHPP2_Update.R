@@ -19,9 +19,7 @@ y_seq <- seq(win$yrange[1] + cell_size/2,
              win$yrange[2] - cell_size/2,
              by = cell_size)
 
-# coords <- as.matrix(expand.grid(x_seq, y_seq))
 coords <- as.matrix(expand.grid(y_seq, x_seq))
-# grid_coords <- expand.grid(x = x_seq, y = y_seq)
 grid_coords <- expand.grid(x = y_seq, y = x_seq)
 
 dists <- as.matrix(dist(coords))
@@ -47,8 +45,8 @@ image.plot(x_seq, y_seq, cov_field, col = terrain.colors(100), main = "Simulated
 
 
 # Simulate NHPP
-b_0 <- 0.5
-b_1 <- 2
+b_0 <- 1
+b_1 <- 3
 
 lambda <- exp(b_0 + b_1*(cov_field))
 lambda_im <- im(lambda, xcol = x_seq, yrow = y_seq)
@@ -69,18 +67,16 @@ par(mfrow = c(1,1))
 # Source 1  --------------------------------------------------------------------
 
 set.seed(111)
-sigma_2 <- 0.01
+sigma_2 <- 0.1
 nrow <- length(nhpp_discretize$yrow)
 ncol <- length(nhpp_discretize$xcol)
 
 mu_1 <- -0.5 * sigma_2^2
 f <- rnorm(nrow * ncol, mean = mu_1, sd = sigma_2)
-# exp_f <- exp(f)
+exp_f <- exp(f)
 
-lambda_1 <- exp(b_0 + b_1*(cov_field) + f)
-  #nhpp_discretize * exp_f
-lambda_1_im <- im(lambda_1, xcol = x_seq, yrow = y_seq)
-nhpp_1 <- rpoispp(lambda_1_im)
+lambda_1 <- nhpp_discretize * exp_f
+nhpp_1 <- rpoispp(lambda_1)
 
 par(mfrow=(c(1,2)))
 plot(nhpp_discretize)
@@ -93,28 +89,26 @@ plot(nhpp_1)
 par(mfrow=(c(1,1)))
 
 # Source 2 ----------------------------------------------------------------------
+
+tau_2 <- 0.5
+alpha <- 0.75
   
-  tau_2 <- 0.5
-  alpha <- 0.75
+g <- rnorm(nrow * ncol, mean = alpha, sd = tau_2)
+exp_g <- exp(g)
   
-  g <- rnorm(nrow * ncol, mean = alpha, sd = tau_2)
-  # exp_g <- exp(g)
+lambda_2 <- nhpp_discretize * exp_g
+
+nhpp_2 <- rpoispp(lambda_2)
   
-  lambda_2 <- exp(b_0 + b_1*(cov_field) + g)
-    # nhpp_discretize * exp_g
-  lambda_2_im <- im(lambda_2, xcol = x_seq, yrow = y_seq)
+par(mfrow=(c(1,2)))
+plot(nhpp_discretize)
+plot(lambda_2)
+par(mfrow=(c(1,1)))
   
-  nhpp_2 <- rpoispp(lambda_2_im)
-  
-  par(mfrow=(c(1,2)))
-  plot(nhpp_discretize)
-  plot(lambda_2)
-  par(mfrow=(c(1,1)))
-  
-  par(mfrow=(c(1,2)))
-  plot(nhpp_sim)
-  plot(nhpp_2)
-  par(mfrow=(c(1,1)))
+par(mfrow=(c(1,2)))
+plot(nhpp_sim)
+plot(nhpp_2)
+par(mfrow=(c(1,1)))
 
 par(mfrow = (c(1,3)))
 plot(nhpp_sim)
@@ -315,7 +309,7 @@ update_alpha <- function(parameters, priors, data){
   n <- length(parameters$g)
 
   denom <- (n / parameters$tau_2) + (1 / priors$phi)
-  mu_post <- ( sum(parameters$g) / parameters$tau_2 / priors$phi ) / denom
+  mu_post <- ( sum(parameters$g) / parameters$tau_2 ) / denom
   sigma_post <- sqrt(1 / denom)
 
   parameters$alpha <- rnorm(1, mean = mu_post, sd = sigma_post)
