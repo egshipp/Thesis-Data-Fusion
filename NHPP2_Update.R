@@ -104,6 +104,8 @@ par(mfrow=(c(1,2)))
 plot(nhpp_discretize)
 plot(lambda_2)
 par(mfrow=(c(1,1)))
+
+mean(g)
   
 par(mfrow=(c(1,2)))
 plot(nhpp_sim)
@@ -385,7 +387,7 @@ priors <- list(beta_mean = c(0,0),
 
 iters <- 10000
 
-burnin <- 3000
+burnin <- 1
 
 sim <- driver(parameters, priors, data, iters)
 
@@ -457,9 +459,12 @@ par(mfrow = c(1,1))
 
 # Trace Plots -------------------------------------------------------------------
 
-plot(sim$beta[1,], type = "l", main = "Beta Trace Plot")
+plot(sim$beta[1,], type = "l", main = "Beta 1 Trace Plot")
+plot(sim$beta[2,], type = "l", main = "Beta 2 Trace Plot")
 plot(sim$f[1,], type = "l", main = "f trace plot")
 plot(sim$g[1,], type = "l", main = "g trace plot")
 plot(sim$sigma_2[1,], type = "l", main = "sigma_2 trace plot")
 plot(sim$tau_2[1,], type = "l", main = "tau_2 trace plot")
 plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
+
+plot(apply(sim$g, 2, mean), type = "l", main = "g trace plot")
