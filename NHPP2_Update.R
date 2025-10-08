@@ -104,6 +104,8 @@ par(mfrow=(c(1,2)))
 plot(nhpp_discretize)
 plot(lambda_2)
 par(mfrow=(c(1,1)))
+
+mean(g)
   
 par(mfrow=(c(1,2)))
 plot(nhpp_sim)
@@ -385,7 +387,7 @@ priors <- list(beta_mean = c(0,0),
 
 iters <- 10000
 
-burnin <- 3000
+burnin <- 1
 
 sim <- driver(parameters, priors, data, iters)
 
@@ -421,10 +423,7 @@ posterior_lambda <- matrix(NA, nrow = nrow(X_grid), ncol = (iters-burnin))
 
 for(m in 1:(iters-burnin)){
   beta_m <- beta_post[,m]
-  f_m <- f_post[, m]
-  # g_m <- g_post[, m]   # add source 2
   
-  # log intensity = beta0 + beta1 * covariate + f + g
   log_lambda_m <- beta_m[1] + beta_m[2]*covariate
   
   posterior_lambda[, m] <- exp(log_lambda_m)
@@ -460,9 +459,17 @@ par(mfrow = c(1,1))
 
 # Trace Plots -------------------------------------------------------------------
 
+<<<<<<< HEAD
 plot(sim$beta[1,], type = "l", main = "Beta Trace Plot")
 #plot(sim$f[1,], type = "l", main = "f trace plot")
+=======
+plot(sim$beta[1,], type = "l", main = "Beta 1 Trace Plot")
+plot(sim$beta[2,], type = "l", main = "Beta 2 Trace Plot")
+plot(sim$f[1,], type = "l", main = "f trace plot")
+>>>>>>> a43c9952ebaf3fea6279f37732461e8637cc4158
 plot(sim$g[1,], type = "l", main = "g trace plot")
 #plot(sim$sigma_2[1,], type = "l", main = "sigma_2 trace plot")
 plot(sim$tau_2[1,], type = "l", main = "tau_2 trace plot")
 plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
+
+plot(apply(sim$g, 2, mean), type = "l", main = "g trace plot")
