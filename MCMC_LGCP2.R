@@ -250,7 +250,7 @@ update_betas<- function(parameters, priors, data){
 update_g <- function(parameters, priors, data){
   
   # Choosing ellipse (nu) from prior (g)
-  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$g)), Sigma = diag(tau_2, length(parameters$g))))
+  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$g)), Sigma = parameters$S_g))
   
   # Log likelihood threshold (finding log(y))
   
@@ -428,7 +428,8 @@ parameters <- list(beta = c(0,0),
                    z = z,
                    # sigma_2 = 0.1,
                    alpha = 0.75,
-                   tau_2 = tau_2)
+                   tau_2 = tau_2, 
+                   S_g = S_g)
 
 priors <- list(beta_mean = c(0,0), 
                beta_sd = c(10,10), 
