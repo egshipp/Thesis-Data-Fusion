@@ -102,7 +102,7 @@ S_g <- tau_2 * exp(-dists/1.5)
 alpha <- -0.2
 
 #g <- rnorm(nrow * ncol, alpha, tau_2)
-g <- as.vector(rcpp_rmvnorm(1,S,mu))
+g <- as.vector(rcpp_rmvnorm(1,S,alpha))
 
 exp_g <- exp(g)
 
@@ -427,7 +427,7 @@ parameters <- list(beta = c(0,0),
                    g = g,
                    z = z,
                    # sigma_2 = 0.1,
-                   alpha = 0.75,
+                   alpha = -0.2,
                    tau_2 = tau_2, 
                    S_g = S_g)
 
