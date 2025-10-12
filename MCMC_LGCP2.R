@@ -98,10 +98,11 @@ par(mfrow=(c(1,1)))
 # Source 2 ----------------------------------------------------------------------
 
 tau_2 <- 0.4
-# S_g <- 0.5 * ( tau_2 * exp(-dists/1.5) )
-alpha <- -0.5
+S_g <- tau_2 * exp(-dists/1.5)
+alpha <- -0.2
 
-g <- as.vector(rcpp_rmvnorm(1, S_g, rep(alpha, nrow*ncol))) 
+#g <- rnorm(nrow * ncol, alpha, tau_2)
+g <- as.vector(rcpp_rmvnorm(1,S,mu))
 
 exp_g <- exp(g)
 
@@ -152,7 +153,7 @@ par(mfrow = (c(1,1)))
 par(mfrow = (c(1,2)))
 quilt.plot(X_2$x, X_2$y, X_2$covariate)
 plot(lgcp_2)
-par(mfrow = (c(1,1)))
+  par(mfrow = (c(1,1)))
 
 quilt.plot(X_grid$x, X_grid$y, X_grid$covariate)
 
@@ -511,6 +512,37 @@ image.plot(x_seq, y_seq, diff_mat,
            col = terrain.colors(50))
 
 par(mfrow = c(1,1))
+
+# Posterior lambda for Source 2 only
+posterior_lambda_g <- matrix(NA, nrow = nrow(X_grid), ncol = (iters - burnin))
+
+for(m in 1:(iters-burnin)){
+  beta_m <- beta_post[, m]
+  
+  # Only the contribution from g
+  log_lambda_m <- beta_m[1] + beta_m[2]*covariate + g_post[, m]
+  
+  posterior_lambda_g[, m] <- exp(log_lambda_m)
+}
+
+# Posterior mean intensity
+lambda_mean_g <- rowMeans(posterior_lambda_g, na.rm = TRUE)
+
+# Reshape to grid
+lambda_mean_g_mat <- matrix(lambda_mean_g, 
+                            nrow = grid_res, 
+                            ncol = grid_res, 
+                            byrow = FALSE)
+
+# Plot
+par(mfrow = c(2,2))
+
+image.plot(x_seq, y_seq, log(lambda), main = "True Intensity", col = terrain.colors(50))
+image.plot(x_seq, y_seq, log(t(lambda_mean_g_mat)), main = "Posterior Mean Source 2 (g)", col = terrain.colors(50))
+image.plot(x_seq, y_seq, log(lambda) - log(t(lambda_mean_g_mat)), main = "Difference True vs Posterior g", col = terrain.colors(50))
+
+par(mfrow = c(1,1))
+
 
 # Trace Plots -------------------------------------------------------------------
 
