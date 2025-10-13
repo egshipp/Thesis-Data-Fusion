@@ -50,7 +50,7 @@ S_z <-  0.5 * exp(-dists/1)
 
 z <- as.vector(rcpp_rmvnorm(1,S_z,mu))
 
-# Simulate NHPP LGCP
+# Simulate LGCP
 b_0 <- 1
 b_1 <- 3
 
@@ -455,6 +455,7 @@ alpha_post <- sim$alpha[,(burnin+1):iters]
 tau_2_post <- sim$tau_2[,(burnin+1):iters]
 # f_post <- sim$f[,(burnin+1):iters]
 g_post <- sim$g[,(burnin+1):iters]
+z_post <- sim$z[,(burnin+1):iters]
 
 apply(beta_post, 1, mean)
 apply(beta_post, 1, sd)
@@ -474,6 +475,10 @@ sd(alpha_post)
 mean(g_post)
 sd(g_post)
 
+mean(z_post)
+sd(z_post)
+
+
 # Posterior Plots ----------------------------------------------------------------
 # Posterior lambda for both sources
 posterior_lambda <- matrix(NA, nrow = nrow(X_grid), ncol = (iters-burnin))
@@ -481,7 +486,7 @@ posterior_lambda <- matrix(NA, nrow = nrow(X_grid), ncol = (iters-burnin))
 for(m in 1:(iters-burnin)){
   beta_m <- beta_post[,m]
   
-  log_lambda_m <- beta_m[1] + beta_m[2]*covariate
+  log_lambda_m <- beta_m[1] + beta_m[2]*covariate + z_post[,m]
   
   posterior_lambda[, m] <- exp(log_lambda_m)
 }
@@ -521,7 +526,7 @@ for(m in 1:(iters-burnin)){
   beta_m <- beta_post[, m]
   
   # Only the contribution from g
-  log_lambda_m <- beta_m[1] + beta_m[2]*covariate + g_post[, m]
+  log_lambda_m <- beta_m[1] + beta_m[2]*covariate + + z_post[,m] + g_post[, m]
   
   posterior_lambda_g[, m] <- exp(log_lambda_m)
 }
