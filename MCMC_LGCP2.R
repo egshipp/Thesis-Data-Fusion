@@ -48,7 +48,7 @@ image.plot(x_seq, y_seq, cov_field, col = terrain.colors(100), main = "Simulated
 
 S_z <-  0.5 * exp(-dists/1)
 
-z <- as.vector(rcpp_rmvnorm(1,S,mu))
+z <- as.vector(rcpp_rmvnorm(1,S_z,mu))
 
 # Simulate NHPP LGCP
 b_0 <- 1
@@ -102,7 +102,7 @@ S_g <- tau_2 * exp(-dists/1.5)
 alpha <- -0.2
 
 #g <- rnorm(nrow * ncol, alpha, tau_2)
-g <- as.vector(rcpp_rmvnorm(1,S,alpha))
+g <- as.vector(rcpp_rmvnorm(1,S_g,alpha))
 
 exp_g <- exp(g)
 
@@ -445,7 +445,7 @@ priors <- list(beta_mean = c(0,0),
 
 iters <- 7000
 
-burnin <- 1
+burnin <- 2000
 
 sim <- driver(parameters, priors, data, iters)
 
