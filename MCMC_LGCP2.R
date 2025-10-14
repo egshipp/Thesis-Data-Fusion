@@ -74,16 +74,24 @@ par(mfrow = c(1,1))
 # Source 1  --------------------------------------------------------------------
 
 set.seed(111)
-sigma_2 <- 0.1
+# sigma_2 <- 0.1
 nrow <- length(lgcp_discretize$yrow)
 ncol <- length(lgcp_discretize$xcol)
+# mu_1 <- -0.5 * sigma_2^2
 
-mu_1 <- -0.5 * sigma_2^2
+x_min_subwindow <- 1
+x_max_subwindow <- 5
+y_min_subwindow <- 5
+y_max_subwindow <- 10
+
+sub_window <- owin(xrange = c(x_min_subwindow, x_max_subwindow), yrange = c(y_min_subwindow, y_max_subwindow))
+
 f <- rnorm(nrow * ncol, mean = 0, sd = 0)
 exp_f <- exp(f)
 
 lambda_1 <- lgcp_discretize * exp_f
-lgcp_1 <- rpoispp(lambda_1)
+lambda_1_sub <- lambda_1[sub_window]
+lgcp_1 <- rpoispp(lambda_1_sub)
 
 par(mfrow=(c(1,2)))
 plot(lgcp_discretize)
@@ -94,6 +102,10 @@ par(mfrow=(c(1,2)))
 plot(lgcp_sim)
 plot(lgcp_1)
 par(mfrow=(c(1,1)))
+
+plot(win, main = "10x10 window with points only in subregion")
+points(lgcp_1, col = "red", pch = 16)
+rect(x_min_subwindow, y_min_subwindow, x_max_subwindow, y_max_subwindow, border = "blue", lwd = 2) # optional subregion outline
 
 # Source 2 ----------------------------------------------------------------------
 
