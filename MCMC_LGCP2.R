@@ -3,6 +3,7 @@ library(spatstat)
 library(fields)
 library(FastGP)
 library(MASS)
+library(spatstat.geom)
 
 
 # True LGCP --------------------------------------------------------------------
@@ -69,8 +70,6 @@ points(lgcp_sim)
 plot(lgcp_discretize)
 par(mfrow = c(1,1))
 
-
-
 # Source 1  --------------------------------------------------------------------
 
 set.seed(111)
@@ -79,7 +78,7 @@ nrow <- length(lgcp_discretize$yrow)
 ncol <- length(lgcp_discretize$xcol)
 # mu_1 <- -0.5 * sigma_2^2
 
-x_min_subwindow <- 1
+x_min_subwindow <- 0
 x_max_subwindow <- 5
 y_min_subwindow <- 5
 y_max_subwindow <- 10
