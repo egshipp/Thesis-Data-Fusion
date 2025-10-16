@@ -78,19 +78,30 @@ nrow <- length(lgcp_discretize$yrow)
 ncol <- length(lgcp_discretize$xcol)
 # mu_1 <- -0.5 * sigma_2^2
 
-x_min_subwindow <- 0
-x_max_subwindow <- 5
-y_min_subwindow <- 5
-y_max_subwindow <- 10
+x_min_subwindow1 <- 0
+x_max_subwindow1 <- 5
+y_min_subwindow1 <- 5
+y_max_subwindow1 <- 10
 
-sub_window <- owin(xrange = c(x_min_subwindow, x_max_subwindow), yrange = c(y_min_subwindow, y_max_subwindow))
+x_min_subwindow2 <- 5
+x_max_subwindow2 <- 10
+y_min_subwindow2 <- 0
+y_max_subwindow2 <- 5
+
+sub_window1 <- owin(xrange = c(x_min_subwindow1, x_max_subwindow1), yrange = c(y_min_subwindow1, y_max_subwindow1))
+
+sub_window2 <- owin(xrange = c(x_min_subwindow2, x_max_subwindow2), yrange = c(y_min_subwindow2, y_max_subwindow2))
 
 f <- rnorm(nrow * ncol, mean = 0, sd = 0)
 exp_f <- exp(f)
 
 lambda_1 <- lgcp_discretize * exp_f
-lambda_1_sub <- lambda_1[sub_window]
-lgcp_1 <- rpoispp(lambda_1_sub)
+
+lgcp_1_sub1 <- rpoispp(lambda_1[sub_window1])
+lgcp_1_sub2 <- rpoispp(lambda_1[sub_window2])
+
+lgcp_1 <- superimpose(lgcp_1_sub1, lgcp_1_sub2, W = owin(c(0,10), c(0,10)))
+
 
 par(mfrow=(c(1,2)))
 plot(lgcp_discretize)
@@ -133,7 +144,8 @@ par(mfrow=(c(1,1)))
 
 par(mfrow = (c(1,3)))
 plot(lgcp_sim)
-plot(lgcp_1)
+plot(win, main ="lgcp_1")
+  points(lgcp_1)
 plot(lgcp_2)
 par(mfrow=(c(1,1)))
 
