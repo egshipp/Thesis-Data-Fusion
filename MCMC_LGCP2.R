@@ -8,6 +8,7 @@ library(spatstat.geom)
 
 # True LGCP --------------------------------------------------------------------
 # Simulate Covariate
+par(mfrow = c(1,1))
 win <- owin(xrange = c(0, 10), yrange = c(0, 10))
 
 grid_res <- 10
@@ -51,6 +52,10 @@ S_z <-  0.5 * exp(-dists/1)
 
 z <- as.vector(rcpp_rmvnorm(1,S_z,mu))
 
+z_mat <- matrix(z, nrow = length(x_seq), ncol = length(y_seq))
+
+image.plot(x_seq, y_seq, z_mat, col = terrain.colors(100), main = "Simulated Exponential Latent Gaussian Field")
+
 # Simulate LGCP
 b_0 <- 1
 b_1 <- 3
@@ -59,6 +64,8 @@ lambda <- exp(b_0 + b_1*(cov_field) + z)
 lambda_im <- im(lambda, xcol = x_seq, yrow = y_seq)
 
 lgcp_sim <- rpoispp(lambda_im)
+
+plot(lgcp_sim)
 
 # Discretize using spatstat
 
@@ -113,9 +120,10 @@ plot(lgcp_sim)
 plot(lgcp_1)
 par(mfrow=(c(1,1)))
 
-plot(win, main = "10x10 window with points only in subregion")
-points(lgcp_1, col = "red", pch = 16)
-rect(x_min_subwindow, y_min_subwindow, x_max_subwindow, y_max_subwindow, border = "blue", lwd = 2) # optional subregion outline
+plot(win, main = "f measurement error field")
+  points(lgcp_1, col = "red", pch = 16)
+  rect(x_min_subwindow1, y_min_subwindow1, x_max_subwindow1, y_max_subwindow1, border = "blue", lwd = 2) 
+  rect(x_min_subwindow2, y_min_subwindow2, x_max_subwindow2, y_max_subwindow2, border = "blue", lwd = 2) 
 
 # Source 2 ----------------------------------------------------------------------
 
@@ -543,33 +551,33 @@ image.plot(x_seq, y_seq, diff_mat,
 par(mfrow = c(1,1))
 
 # Posterior lambda for Source 2 only
-posterior_lambda_g <- matrix(NA, nrow = nrow(X_grid), ncol = (iters - burnin))
-
-for(m in 1:(iters-burnin)){
-  beta_m <- beta_post[, m]
-  
-  # Only the contribution from g
-  log_lambda_m <- beta_m[1] + beta_m[2]*covariate + + z_post[,m] + g_post[, m]
-  
-  posterior_lambda_g[, m] <- exp(log_lambda_m)
-}
-
-# Posterior mean intensity
-lambda_mean_g <- rowMeans(posterior_lambda_g, na.rm = TRUE)
-
-# Reshape to grid
-lambda_mean_g_mat <- matrix(lambda_mean_g, 
-                            nrow = grid_res, 
-                            ncol = grid_res, 
-                            byrow = FALSE)
-
-# Plot
-par(mfrow = c(2,2))
-
-image.plot(x_seq, y_seq, log(lambda), main = "True Intensity", col = terrain.colors(50))
-image.plot(x_seq, y_seq, log(t(lambda_mean_g_mat)), main = "Posterior Mean Source 2 (g)", col = terrain.colors(50))
-image.plot(x_seq, y_seq, log(lambda) - log(t(lambda_mean_g_mat)), main = "Difference True vs Posterior g", col = terrain.colors(50))
-
+# posterior_lambda_g <- matrix(NA, nrow = nrow(X_grid), ncol = (iters - burnin))
+# 
+# for(m in 1:(iters-burnin)){
+#   beta_m <- beta_post[, m]
+# 
+#   # Only the contribution from g
+#   log_lambda_m <- beta_m[1] + beta_m[2]*covariate + + z_post[,m] + g_post[, m]
+# 
+#   posterior_lambda_g[, m] <- exp(log_lambda_m)
+# }
+# 
+# # Posterior mean intensity
+# lambda_mean_g <- rowMeans(posterior_lambda_g, na.rm = TRUE)
+# 
+# # Reshape to grid
+# lambda_mean_g_mat <- matrix(lambda_mean_g,
+#                             nrow = grid_res,
+#                             ncol = grid_res,
+#                             byrow = FALSE)
+# 
+# # Plot
+# par(mfrow = c(2,2))
+# 
+# image.plot(x_seq, y_seq, log(lambda), main = "True Intensity", col = terrain.colors(50))
+# image.plot(x_seq, y_seq, log(t(lambda_mean_g_mat)), main = "Posterior Mean Source 2 (g)", col = terrain.colors(50))
+# image.plot(x_seq, y_seq, log(lambda) - log(t(lambda_mean_g_mat)), main = "Difference True vs Posterior g", col = terrain.colors(50))
+# 
 par(mfrow = c(1,1))
 
 
