@@ -3,7 +3,6 @@ library(spatstat)
 library(fields)
 library(FastGP)
 library(MASS)
-library(spatstat.geom)
 
 
 # True LGCP --------------------------------------------------------------------
@@ -11,7 +10,7 @@ library(spatstat.geom)
 par(mfrow = c(1,1))
 win <- owin(xrange = c(0, 10), yrange = c(0, 10))
 
-grid_res <- 10
+grid_res <- 20
 
 cell_size <- diff(win$xrange) / grid_res
 
@@ -86,14 +85,14 @@ ncol <- length(lgcp_discretize$xcol)
 # mu_1 <- -0.5 * sigma_2^2
 
 x_min_subwindow1 <- 0
-x_max_subwindow1 <- 5
-y_min_subwindow1 <- 5
-y_max_subwindow1 <- 10
+x_max_subwindow1 <- 10
+y_min_subwindow1 <- 10
+y_max_subwindow1 <- 20
 
-x_min_subwindow2 <- 5
-x_max_subwindow2 <- 10
+x_min_subwindow2 <- 10
+x_max_subwindow2 <- 20
 y_min_subwindow2 <- 0
-y_max_subwindow2 <- 5
+y_max_subwindow2 <- 10
 
 sub_window1 <- owin(xrange = c(x_min_subwindow1, x_max_subwindow1), yrange = c(y_min_subwindow1, y_max_subwindow1))
 
