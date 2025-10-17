@@ -68,7 +68,7 @@ plot(lgcp_sim)
 
 # Discretize using spatstat
 
-lgcp_discretize <- pixellate(lgcp_sim, eps = 1)
+lgcp_discretize <- pixellate(lgcp_sim, eps = 0.5)
 
 par(mfrow = c(1,2))
 image.plot(x_seq, y_seq, cov_field, col = terrain.colors(100), main = "Simulated LGCP")
@@ -85,14 +85,14 @@ ncol <- length(lgcp_discretize$xcol)
 # mu_1 <- -0.5 * sigma_2^2
 
 x_min_subwindow1 <- 0
-x_max_subwindow1 <- 10
-y_min_subwindow1 <- 10
-y_max_subwindow1 <- 20
+x_max_subwindow1 <- 5
+y_min_subwindow1 <- 5
+y_max_subwindow1 <- 10
 
-x_min_subwindow2 <- 10
-x_max_subwindow2 <- 20
+x_min_subwindow2 <- 5
+x_max_subwindow2 <- 10
 y_min_subwindow2 <- 0
-y_max_subwindow2 <- 10
+y_max_subwindow2 <- 5
 
 sub_window1 <- owin(xrange = c(x_min_subwindow1, x_max_subwindow1), yrange = c(y_min_subwindow1, y_max_subwindow1))
 
