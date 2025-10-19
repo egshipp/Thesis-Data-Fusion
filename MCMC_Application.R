@@ -4,13 +4,39 @@ library(fields)
 library(FastGP)
 library(MASS)
 
+# Data ---------------------------------------------------------------------------
+automated_locations <- readRDS("C:/Users/Elena/Desktop/Thesis/Thesis-Data-Fusion/automated_locations.rds")
+manual_locations <- readRDS("C:/Users/Elena/Desktop/Thesis/Thesis-Data-Fusion/manual_locations.rds")
 
-# True LGCP --------------------------------------------------------------------
-# Simulate Covariate
+auto_loc_mat <- as.data.frame(automated_locations)
+  colnames(auto_loc_mat) = c("x","y")
+  
+manual_loc_mat <- as.data.frame(manual_locations) # Over entire window
+  colnames(manual_loc_mat) = c("x","y")
+  
+x_mid <- mean(range(manual_loc_mat$x))
+y_mid <- mean(range(manual_loc_mat$y))
+manual_loc_trimmed <- manual_loc_mat[
+  (
+    manual_loc_mat$x >= x_mid & manual_loc_mat$y < y_mid
+  ),
+]
+
+par(mfrow = c(2,2))  
+plot(auto_loc_mat$x, auto_loc_mat$y, main = "Automated Locations")
+plot(manual_loc_mat$x, manual_loc_mat$y, main = "Manual Locations")
+plot(manual_loc_trimmed$x, manual_loc_trimmed$y, main = "Trimmed Manual Locations")
 par(mfrow = c(1,1))
-win <- owin(xrange = c(0, 10), yrange = c(0, 10))
 
-grid_res <- 20
+# Simulating Covariate ----------------------------------------------------------
+all_points <- rbind(auto_loc_mat, manual_loc_mat)
+
+win <- owin(
+  xrange = range(all_points$x),
+  yrange = range(all_points$y)
+)
+
+grid_res <- 10
 
 cell_size <- diff(win$xrange) / grid_res
 
@@ -21,8 +47,11 @@ y_seq <- seq(win$yrange[1] + cell_size/2,
              win$yrange[2] - cell_size/2,
              by = cell_size)
 
+# coords <- as.matrix(expand.grid(y_seq, x_seq))
+# grid_coords <- expand.grid(x = x_seq, y = y_seq)
+
 coords <- as.matrix(expand.grid(y_seq, x_seq))
-grid_coords <- expand.grid(x = y_seq, y = x_seq)
+grid_coords <- expand.grid(x = x_seq, y = y_seq)
 
 dists <- as.matrix(dist(coords))
 n <- nrow(coords)
@@ -34,8 +63,8 @@ mu <- rep(0, n)
 covariate <- as.vector(rcpp_rmvnorm(1,S,mu))
 
 cov_field <- matrix(covariate, 
-                    nrow = grid_res, 
-                    ncol = grid_res,
+                    nrow = length(y_seq), 
+                    ncol = length(x_seq),
                     byrow = TRUE)
 
 cov_field_ppp <- ppp(x = grid_coords$x, 
@@ -43,146 +72,25 @@ cov_field_ppp <- ppp(x = grid_coords$x,
                      window = win, 
                      marks = covariate)
 
-image.plot(x_seq, y_seq, cov_field, col = terrain.colors(100), main = "Simulated Exponential Covariate")
+image.plot(x_seq, y_seq, t(cov_field)[, nrow(cov_field):1], col = terrain.colors(100), main = "Simulated Exponential Covariate")
 
-#Simulate Gaussian random field 
 
-sigma_2 <- 0.5
+# Dataframe creation for MCMC ---------------------------------------------------
 
-S_z <-  sigma_2 * exp(-dists/1)
-
-z <- as.vector(rcpp_rmvnorm(1,S_z,mu))
-
-z_mat <- matrix(z, nrow = length(x_seq), ncol = length(y_seq))
-
-image.plot(x_seq, y_seq, z_mat, col = terrain.colors(100), main = "Simulated Exponential Latent Gaussian Field")
-
-# Simulate LGCP
-b_0 <- 1
-b_1 <- 3
-
-lambda <- exp(b_0 + b_1*(cov_field) + z)
-lambda_im <- im(lambda, xcol = x_seq, yrow = y_seq)
-
-lgcp_sim <- rpoispp(lambda_im)
-
-plot(lgcp_sim)
-
-# Discretize using spatstat
-
-lgcp_discretize <- pixellate(lgcp_sim, eps = 0.5)
-
-par(mfrow = c(1,2))
-image.plot(x_seq, y_seq, cov_field, col = terrain.colors(100), main = "Simulated LGCP")
-points(lgcp_sim)
-plot(lgcp_discretize)
-par(mfrow = c(1,1))
-
-# Source 1  --------------------------------------------------------------------
-
-set.seed(111)
-nrow <- length(lgcp_discretize$yrow)
-ncol <- length(lgcp_discretize$xcol)
-
-x_min_subwindow1 <- 0
-x_max_subwindow1 <- 5
-y_min_subwindow1 <- 5
-y_max_subwindow1 <- 10
-
-x_min_subwindow2 <- 5
-x_max_subwindow2 <- 10
-y_min_subwindow2 <- 0
-y_max_subwindow2 <- 5
-
-sub_window1 <- owin(xrange = c(x_min_subwindow1, x_max_subwindow1), yrange = c(y_min_subwindow1, y_max_subwindow1))
-
-sub_window2 <- owin(xrange = c(x_min_subwindow2, x_max_subwindow2), yrange = c(y_min_subwindow2, y_max_subwindow2))
-
-lambda_1 <- lgcp_discretize
-
-lgcp_1_sub1 <- rpoispp(lambda_1[sub_window1])
-lgcp_1_sub2 <- rpoispp(lambda_1[sub_window2])
-
-lgcp_1 <- superimpose(lgcp_1_sub1, lgcp_1_sub2, W = owin(c(0,10), c(0,10)))
-
-par(mfrow=(c(1,2)))
-plot(lgcp_discretize)
-plot(lambda_1)
-par(mfrow=(c(1,1)))
-
-par(mfrow=(c(1,2)))
-plot(lgcp_sim)
-plot(lgcp_1)
-par(mfrow=(c(1,1)))
-
-plot(win, main = "f measurement error field")
-points(lgcp_1, col = "red", pch = 16)
-rect(x_min_subwindow1, y_min_subwindow1, x_max_subwindow1, y_max_subwindow1, border = "blue", lwd = 2) 
-rect(x_min_subwindow2, y_min_subwindow2, x_max_subwindow2, y_max_subwindow2, border = "blue", lwd = 2) 
-
-# Source 2 ----------------------------------------------------------------------
-
-tau_2 <- 0.4
-S_g <- tau_2 * exp(-dists/1.5)
-alpha <- -0.2
-
-#g <- rnorm(nrow * ncol, alpha, tau_2)
-g <- as.vector(rcpp_rmvnorm(1,S_g,alpha))
-
-exp_g <- exp(g)
-
-lambda_2 <- lgcp_discretize * exp_g
-
-lgcp_2 <- rpoispp(lambda_2)
-
-par(mfrow=(c(1,2)))
-plot(lgcp_discretize)
-plot(lambda_2)
-par(mfrow=(c(1,1)))
-
-par(mfrow=(c(1,2)))
-plot(lgcp_sim)
-plot(lgcp_2)
-par(mfrow=(c(1,1)))
-
-par(mfrow = (c(1,3)))
-plot(lgcp_sim)
-plot(win, main ="lgcp_1")
-points(lgcp_1)
-plot(lgcp_2)
-par(mfrow=(c(1,1)))
-
-# Data frame creation ----------------------------------------------------------
-
-## X grid
+## Grid
 X_grid <- as.data.frame(coords)
-colnames(X_grid) <- c("x", "y")
-X_grid$covariate <- covariate
-
-## Source 1 (small var)
-X_1 <- as.data.frame(lgcp_1)
-nn_X_1 <- nncross(lgcp_1, cov_field_ppp)
+  colnames(X_grid) <- c("x", "y")
+  X_grid$covariate <- covariate
+  
+## Source 1 (Manual Locations - Trimmed)
+X_1 <- manual_loc_trimmed
+nn_X_1 <- nncross(manual_loc_trimmed, cov_field_ppp)
 X_1$covariate <- cov_field_ppp$marks[nn_X_1$which]
 
-## Source 2 (large var)
-X_2 <- as.data.frame(lgcp_2)
-nn_X_2 <- nncross(lgcp_2, cov_field_ppp)
+## Source 2 (Automated Locations)
+X_2 <- auto_loc_mat
+nn_X_2 <- nncross(auto_loc_mat, cov_field_ppp)
 X_2$covariate <- cov_field_ppp$marks[nn_X_2$which]
-
-
-par(mfrow = (c(1,2)))
-quilt.plot(X_1$x, X_1$y, X_1$covariate)
-plot(lgcp_1)
-par(mfrow = (c(1,1)))
-
-
-par(mfrow = (c(1,2)))
-quilt.plot(X_2$x, X_2$y, X_2$covariate)
-plot(lgcp_2)
-par(mfrow = (c(1,1)))
-
-quilt.plot(X_grid$x, X_grid$y, X_grid$covariate)
-
 
 # MCMC --------------------------------------------------------------------------
 
@@ -313,15 +221,15 @@ update_z <- function(parameters, priors, data){
 
 update_sigma_2 <- function(parameters, priors, data){
   n <- length(parameters$z)
-
+  
   alpha_post <- priors$a_0_sigma + n/2
   beta_post  <- priors$b_0_sigma  + 0.5 * sum((parameters$z - priors$z_mean)^2)
-
+  
   # Draw samples from Inverse-Gamma
   parameters$sigma_2 <- 1 / rgamma(1, shape = alpha_post, rate = beta_post)
-
+  
   return(parameters)
-
+  
 }
 
 # Updating source 2 variance using Gibbs Sampling - tau_2
@@ -391,9 +299,7 @@ driver <- function(parameters, priors, data, iters){
   return(out)
 }
 
-
-# Attempting --------------------------------------------------------------------
-
+# Parameters, priors, and data ---------------------------------------------------
 
 data <- list(X_grid = X_grid, 
              X_1 = X_1, 
@@ -402,20 +308,22 @@ data <- list(X_grid = X_grid,
              nn_index_1 = nn_X_1$which,
              nn_index_2 = nn_X_2$which,
              win = win, 
-             grid_res = 20, 
+             grid_res = 10, 
              cell_size = cell_size, 
              x_seq = x_seq, 
              y_seq = y_seq, 
              coords = as.matrix(expand.grid(y_seq, x_seq)),
-             dists_z = as.matrix(dist(coords)))
+             dists = as.matrix(dist(coords)))
 
-parameters <- list(beta = c(0,0),
-                   g = g,
-                   z = z,
-                   sigma_2 = sigma_2,
-                   alpha = alpha,
-                   tau_2 = tau_2)
 
+parameters <- list(
+             beta = c(0, 0),       
+             sigma_2 = 1,          
+             alpha = 0,            
+             tau_2 = 1,            
+             g = rep(0, nrow(data$coords)),  
+             z = rep(0, nrow(data$coords))   
+)
 priors <- list(beta_mean = c(0,0), 
                beta_sd = c(10,10), 
                beta_prop_sd = c(0.075, 0.075),
@@ -425,14 +333,13 @@ priors <- list(beta_mean = c(0,0),
                a_0_tau = 2,
                b_0_tau = 1,
                phi = 10,
-               z_var = 0.2
-)
+               z_var = 0.2)
 
-iters <- 7000
+iters <- 1000
+burnin <- 0
 
-burnin <- 2000
-
-sim <- driver(parameters, priors, data, iters) # took 20 min to run with res = 20
+# Run driver -----------------------------------------------------------------------
+sim <- driver(parameters, priors, data, iters)
 
 beta_post <- sim$beta[, (burnin+1):iters]
 alpha_post <- sim$alpha[,(burnin+1):iters]
@@ -461,47 +368,37 @@ sd(z_post)
 
 
 # Posterior Plots ----------------------------------------------------------------
-# Posterior lambda for both sources
-posterior_lambda <- matrix(NA, nrow = nrow(X_grid), ncol = (iters-burnin))
+# Posterior intensity matrix
+posterior_lambda <- matrix(NA, nrow = nrow(X_grid), ncol = (iters - burnin))
 
-for(m in 1:(iters-burnin)){
-  beta_m <- beta_post[,m]
+for (m in 1:(iters - burnin)) {
+  beta_m <- beta_post[, m]
   
-  log_lambda_m <- beta_m[1] + beta_m[2]*covariate + z_post[,m]
+  # Compute log intensity for each location
+  log_lambda_m <- beta_m[1] + beta_m[2] * covariate + z_post[, m]
   
+  # Exponentiate for intensity
   posterior_lambda[, m] <- exp(log_lambda_m)
 }
 
 # Posterior mean intensity
 lambda_mean <- rowMeans(posterior_lambda, na.rm = TRUE)
 
-# Reshape to grid
-lambda_mean_mat <- matrix(lambda_mean, 
-                          nrow = grid_res, 
-                          ncol = grid_res, 
-                          byrow = FALSE)
+# Reshape to spatial grid
+lambda_mean_mat <- matrix(lambda_mean,
+                          nrow = length(y_seq),
+                          ncol = length(x_seq),
+                          byrow = TRUE)
 
-# Plotting
-par(mfrow = c(2,2))
+# Plot posterior mean intensity (on log scale)
+image.plot(x_seq, y_seq, log(lambda_mean_mat),
+           main = "Posterior Mean Intensity (log scale)",
+           xlab = "x", ylab = "y",
+           col = terrain.colors(100))
 
-image(x_seq, y_seq, log(lambda),
-      main = "True Intensity",
-      col = terrain.colors(50))
-
-image.plot(x_seq, y_seq, log(t(lambda_mean_mat)),
-           main = "Posterior Mean",
-           col = terrain.colors(50))
-
-diff_mat <- log(lambda) - log(t(lambda_mean_mat))
-
-image.plot(x_seq, y_seq, diff_mat,
-           main = "Difference between True and Posterior",
-           col = terrain.colors(50))
-
-par(mfrow = c(1,1))
 
 # Trace Plots -------------------------------------------------------------------
-
+par(mfrow = c(1,1))
 plot(sim$beta[1,], type = "l", main = "Beta 1 Trace Plot")
 plot(sim$beta[2,], type = "l", main = "Beta 2 Trace Plot")
 plot(sim$z[1,], type = "l", main = "z trace plot")
