@@ -10,7 +10,7 @@ library(MASS)
 par(mfrow = c(1,1))
 win <- owin(xrange = c(0, 10), yrange = c(0, 10))
 
-grid_res <- 20
+grid_res <- 10
 
 cell_size <- diff(win$xrange) / grid_res
 
@@ -55,6 +55,11 @@ z <- as.vector(rcpp_rmvnorm(1,S_z,mu))
 
 z_mat <- matrix(z, nrow = length(x_seq), ncol = length(y_seq))
 
+z_ppp <- ppp(x = grid_coords$x,
+             y = grid_coords$y, 
+             window = win,
+             marks = z)
+
 image.plot(x_seq, y_seq, z_mat, col = terrain.colors(100), main = "Simulated Exponential Latent Gaussian Field")
 
 # Simulate LGCP
@@ -70,7 +75,7 @@ plot(lgcp_sim)
 
 # Discretize using spatstat
 
-lgcp_discretize <- pixellate(lgcp_sim, eps = 0.5)
+lgcp_discretize <- pixellate(lgcp_sim, eps = 1)
 
 par(mfrow = c(1,2))
 image.plot(x_seq, y_seq, cov_field, col = terrain.colors(100), main = "Simulated LGCP")
@@ -158,6 +163,7 @@ par(mfrow=(c(1,1)))
 X_grid <- as.data.frame(coords)
 colnames(X_grid) <- c("x", "y")
 X_grid$covariate <- covariate
+
 
 ## Source 1 (small var)
 X_1 <- as.data.frame(lgcp_1)
