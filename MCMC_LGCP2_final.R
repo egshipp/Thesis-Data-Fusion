@@ -10,7 +10,7 @@ library(MASS)
 par(mfrow = c(1,1))
 win <- owin(xrange = c(0, 10), yrange = c(0, 10))
 
-grid_res <- 10
+grid_res <- 20
 
 cell_size <- diff(win$xrange) / grid_res
 
@@ -33,19 +33,19 @@ mu <- rep(0, n)
 
 covariate <- as.vector(rcpp_rmvnorm(1,S,mu))
 
-cov_field <- matrix(covariate, 
-                    nrow = grid_res, 
+cov_field <- matrix(covariate,
+                    nrow = grid_res,
                     ncol = grid_res,
                     byrow = TRUE)
 
-cov_field_ppp <- ppp(x = grid_coords$x, 
+cov_field_ppp <- ppp(x = grid_coords$x,
                      y = grid_coords$y,
-                     window = win, 
+                     window = win,
                      marks = covariate)
 
 image.plot(x_seq, y_seq, cov_field, col = terrain.colors(100), main = "Simulated Exponential Covariate")
 
-#Simulate Gaussian random field 
+#Simulate Gaussian random field
 
 sigma_2 <- 0.5
 
@@ -56,7 +56,7 @@ z <- as.vector(rcpp_rmvnorm(1,S_z,mu))
 z_mat <- matrix(z, nrow = length(x_seq), ncol = length(y_seq))
 
 z_ppp <- ppp(x = grid_coords$x,
-             y = grid_coords$y, 
+             y = grid_coords$y,
              window = win,
              marks = z)
 
@@ -75,7 +75,7 @@ plot(lgcp_sim)
 
 # Discretize using spatstat
 
-lgcp_discretize <- pixellate(lgcp_sim, eps = 1)
+lgcp_discretize <- pixellate(lgcp_sim, eps = 0.5)
 
 par(mfrow = c(1,2))
 image.plot(x_seq, y_seq, cov_field, col = terrain.colors(100), main = "Simulated LGCP")
@@ -122,8 +122,8 @@ par(mfrow=(c(1,1)))
 
 plot(win, main = "f measurement error field")
 points(lgcp_1, col = "red", pch = 16)
-rect(x_min_subwindow1, y_min_subwindow1, x_max_subwindow1, y_max_subwindow1, border = "blue", lwd = 2) 
-rect(x_min_subwindow2, y_min_subwindow2, x_max_subwindow2, y_max_subwindow2, border = "blue", lwd = 2) 
+rect(x_min_subwindow1, y_min_subwindow1, x_max_subwindow1, y_max_subwindow1, border = "blue", lwd = 2)
+rect(x_min_subwindow2, y_min_subwindow2, x_max_subwindow2, y_max_subwindow2, border = "blue", lwd = 2)
 
 # Source 2 ----------------------------------------------------------------------
 
@@ -164,11 +164,21 @@ X_grid <- as.data.frame(coords)
 colnames(X_grid) <- c("x", "y")
 X_grid$covariate <- covariate
 
-
 ## Source 1 (small var)
 X_1 <- as.data.frame(lgcp_1)
 nn_X_1 <- nncross(lgcp_1, cov_field_ppp)
 X_1$covariate <- cov_field_ppp$marks[nn_X_1$which]
+
+# making a mask for X-grid to be used with source 1
+inside_sub1 <- with(X_grid,
+                    x >= x_min_subwindow1 & x <= x_max_subwindow1 &
+                      y >= y_min_subwindow1 & y <= y_max_subwindow1)
+
+inside_sub2 <- with(X_grid,
+                    x >= x_min_subwindow2 & x <= x_max_subwindow2 &
+                      y >= y_min_subwindow2 & y <= y_max_subwindow2)
+
+X_grid$mask_source1 <- inside_sub1 | inside_sub2
 
 ## Source 2 (large var)
 X_2 <- as.data.frame(lgcp_2)
@@ -195,20 +205,23 @@ quilt.plot(X_grid$x, X_grid$y, X_grid$covariate)
 ## log likelihood function
 loglike <- function(parameters, data) {
   
+  idx_mask1 <- which(X_grid$mask_source1)
+
   log_lambda_points1 <- parameters$beta[1] + parameters$beta[2] * data$X_1$covariate + parameters$z[data$nn_index_1]
   term1 <- sum(log_lambda_points1)
+
+  log_lambda_grid1_full <- parameters$beta[1] + parameters$beta[2] * data$X_grid$covariate + parameters$z
   
-  log_lambda_grid1 <- parameters$beta[1] + parameters$beta[2] * data$X_grid$covariate + parameters$z
-  lambda_grid1 <- exp(log_lambda_grid1)
-  term2 <- sum(lambda_grid1 * data$cell_area)
-  
+  lambda_grid1_masked <- exp(log_lambda_grid1_full[idx_mask1])
+  term2 <- sum(lambda_grid1_masked * data$cell_area)
+
   log_lambda_points2 <- parameters$beta[1] + parameters$beta[2] * data$X_2$covariate + parameters$g[data$nn_index_2] + parameters$z[data$nn_index_2]
   term3 <- sum(log_lambda_points2)
-  
+
   log_lambda_grid2 <- parameters$beta[1] + parameters$beta[2] * data$X_grid$covariate + parameters$g + parameters$z
   lambda_grid2 <- exp(log_lambda_grid2)
   term4 <- sum(lambda_grid2 * data$cell_area)
-  
+
   likelihood <- (term1 - term2) + (term3 - term4)
   return(likelihood)
 }
@@ -216,51 +229,51 @@ loglike <- function(parameters, data) {
 
 ## Updating slope estimates using Metropolis Hastings MCMC
 update_betas<- function(parameters, priors, data){
-  
-  beta_cand <- rnorm(length(parameters$beta), mean = parameters$beta, sd = priors$beta_prop_sd) 
-  
+
+  beta_cand <- rnorm(length(parameters$beta), mean = parameters$beta, sd = priors$beta_prop_sd)
+
   params_top <- list(beta = beta_cand, g = parameters$g, z = parameters$z)
   params_bottom <- list(beta = parameters$beta, g = parameters$g, z = parameters$z)
-  
+
   # Posteriors
   post_top <- loglike(params_top, data) + sum(dnorm(beta_cand, mean = priors$beta_mean, sd = priors$beta_sd, log = TRUE))
   post_bottom <- loglike(params_bottom, data) + sum(dnorm(parameters$beta, mean = priors$beta_mean, sd = priors$beta_sd, log = TRUE))
-  
+
   # Metropolis Hastings Ratio
   log_acceptance_ratio <- post_top - post_bottom
-  
+
   if(log(runif(1)) < log_acceptance_ratio) {
     parameters$beta <- beta_cand
   }
-  
+
   return(parameters)
 }
 
 # Updating g - Source 2 measurement error
 update_g <- function(parameters, priors, data){
-  
+
   # Choosing ellipse (nu) from prior (g)
   nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$g)), Sigma = parameters$tau_2 * exp(-dists/1.5)))
-  
+
   # Log likelihood threshold (finding log(y))
-  
+
   u <- runif(1, min = 0, max = 1)
-  
+
   log_y <- loglike(parameters, data) + log(u)
-  
+
   # Draw an initial proposal for theta
-  
+
   theta <- runif(1, min = 0, max = 2*pi)
   theta_min <- theta - 2*pi
   theta_max <- theta
-  
+
   repeat {
     # Calculate g'
     g_prime <- as.vector(parameters$g*cos(theta) + nu*sin(theta))
-    
+
     params_prime <- parameters
     params_prime$g <- g_prime
-    
+
     # Shrinking bracket
     if(loglike(params_prime, data) > log_y){
       parameters$g <- g_prime
@@ -277,29 +290,29 @@ update_g <- function(parameters, priors, data){
 }
 
 update_z <- function(parameters, priors, data){
-  
+
   # Choosing ellipse (nu) from prior (g)
   nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$z)), Sigma = parameters$sigma_2 * exp(-dists/1)))
-  
+
   # Log likelihood threshold (finding log(y))
-  
+
   u <- runif(1, min = 0, max = 1)
-  
+
   log_y <- loglike(parameters, data) + log(u)
-  
+
   # Draw an initial proposal for theta
-  
+
   theta <- runif(1, min = 0, max = 2*pi)
   theta_min <- theta - 2*pi
   theta_max <- theta
-  
+
   repeat {
     # Calculate z'
     z_prime <- as.vector(parameters$z*cos(theta) + nu*sin(theta))
-    
+
     params_prime <- parameters
     params_prime$z <- z_prime
-    
+
     # Shrinking bracket
     if(loglike(params_prime, data) > log_y){
       parameters$z <- z_prime
@@ -334,28 +347,28 @@ update_sigma_2 <- function(parameters, priors, data){
 
 update_tau_2 <- function(parameters, priors, data){
   n <- length(parameters$g)
-  
+
   alpha_post <- priors$a_0_tau + n/2
   beta_post  <- priors$b_0_tau  + 0.5 * sum((parameters$g - parameters$alpha)^2)
-  
+
   # Draw samples from Inverse-Gamma
   parameters$tau_2 <- 1 / rgamma(1, shape = alpha_post, rate = beta_post)
-  
+
   return(parameters)
-  
+
 }
 
 ## Updating source 2 mean using Gibbs Sampling - alpha
 
 update_alpha <- function(parameters, priors, data){
   n <- length(parameters$g)
-  
+
   denom <- (n / parameters$tau_2) + (1 / priors$phi)
   mu_post <- (( sum(parameters$g) / parameters$tau_2 )) / denom
   sigma_post <- sqrt(1 / denom)
-  
+
   parameters$alpha <- rnorm(1, mean = mu_post, sd = sigma_post)
-  
+
   return(parameters)
 }
 
@@ -366,7 +379,7 @@ driver <- function(parameters, priors, data, iters){
   out$params=parameters
   out$priors=priors
   out$iters=iters
-  
+
   #Posterior containers
   out$beta=matrix(NA,nrow = length(parameters$beta),ncol = iters)
   out$g=matrix(NA, nrow = length(parameters$g), ncol = iters)
@@ -374,23 +387,23 @@ driver <- function(parameters, priors, data, iters){
   out$sigma_2=matrix(NA, nrow = 1, ncol = iters)
   out$tau_2=matrix(NA, nrow = 1, ncol = iters)
   out$alpha=matrix(NA, nrow = 1, ncol = iters)
-  
+
   for(k in 1:iters){
-    parameters <- update_betas(parameters, priors, data) 
+    parameters <- update_betas(parameters, priors, data)
     out$beta[,k]=parameters$beta
-    
-    parameters <- update_g(parameters, priors, data) 
+
+    parameters <- update_g(parameters, priors, data)
     out$g[,k] <- parameters$g
-    
-    parameters <- update_z(parameters, priors, data) 
+
+    parameters <- update_z(parameters, priors, data)
     out$z[,k] <- parameters$z
-    
+
     parameters <- update_sigma_2(parameters, priors, data)
     out$sigma_2[,k] <- parameters$sigma_2
-    
+
     parameters <- update_alpha(parameters, priors, data)
     out$alpha[,k] <- parameters$alpha
-    
+
     parameters <- update_tau_2(parameters, priors, data)
     out$tau_2[,k] <- parameters$tau_2
   }
@@ -401,17 +414,17 @@ driver <- function(parameters, priors, data, iters){
 # Attempting --------------------------------------------------------------------
 
 
-data <- list(X_grid = X_grid, 
-             X_1 = X_1, 
+data <- list(X_grid = X_grid,
+             X_1 = X_1,
              X_2 = X_2,
              cell_area  = (diff(win$xrange) / grid_res) * (diff(win$yrange) / grid_res),
              nn_index_1 = nn_X_1$which,
              nn_index_2 = nn_X_2$which,
-             win = win, 
-             grid_res = 20, 
-             cell_size = cell_size, 
-             x_seq = x_seq, 
-             y_seq = y_seq, 
+             win = win,
+             grid_res = 20,
+             cell_size = cell_size,
+             x_seq = x_seq,
+             y_seq = y_seq,
              coords = as.matrix(expand.grid(y_seq, x_seq)),
              dists_z = as.matrix(dist(coords)))
 
@@ -422,8 +435,8 @@ parameters <- list(beta = c(0,0),
                    alpha = alpha,
                    tau_2 = tau_2)
 
-priors <- list(beta_mean = c(0,0), 
-               beta_sd = c(10,10), 
+priors <- list(beta_mean = c(0,0),
+               beta_sd = c(10,10),
                beta_prop_sd = c(0.075, 0.075),
                z_mean = 0,
                a_0_sigma = 0.5,
@@ -515,4 +528,3 @@ plot(sim$g[1,], type = "l", main = "g trace plot")
 plot(sim$sigma_2[1,], type = "l", main = "sigma_2 trace plot")
 plot(sim$tau_2[1,], type = "l", main = "tau_2 trace plot")
 plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
-
