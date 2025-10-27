@@ -3,6 +3,7 @@ library(spatstat)
 library(fields)
 library(FastGP)
 library(MASS)
+library(ggplot2)
 
 
 # True LGCP --------------------------------------------------------------------
@@ -10,7 +11,7 @@ library(MASS)
 par(mfrow = c(1,1))
 win <- owin(xrange = c(0, 10), yrange = c(0, 10))
 
-grid_res <- 20
+grid_res <- 10
 
 cell_size <- diff(win$xrange) / grid_res
 
@@ -75,7 +76,7 @@ plot(lgcp_sim)
 
 # Discretize using spatstat
 
-lgcp_discretize <- pixellate(lgcp_sim, eps = 0.5)
+lgcp_discretize <- pixellate(lgcp_sim, eps = 1)
 
 par(mfrow = c(1,2))
 image.plot(x_seq, y_seq, cov_field, col = terrain.colors(100), main = "Simulated LGCP")
@@ -367,7 +368,7 @@ update_alpha <- function(parameters, priors, data){
   mu_post <- (( sum(parameters$g) / parameters$tau_2 )) / denom
   sigma_post <- sqrt(1 / denom)
 
-  parameters$alpha <- rnorm(1, mean = mu_post, sd = sigma_post)
+  parameters$alpha <- rnorm(1, mean = mu_post, sd = sigma_post) 
 
   return(parameters)
 }
@@ -528,3 +529,110 @@ plot(sim$g[1,], type = "l", main = "g trace plot")
 plot(sim$sigma_2[1,], type = "l", main = "sigma_2 trace plot")
 plot(sim$tau_2[1,], type = "l", main = "tau_2 trace plot")
 plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
+
+# 95% Confidence Intervals for Estimates ----------------------------------------
+
+#Beta 
+beta_ci_lower <- apply(beta_post, 1, quantile, probs = 0.025)
+beta_ci_upper <- apply(beta_post, 1, quantile, probs = 0.975)
+beta_df <- data.frame(
+  param = paste0("beta", 0:(nrow(beta_post)-1)),
+  mean = apply(beta_post, 1, mean),
+  lower95 = beta_ci_lower,
+  upper95 = beta_ci_upper
+)
+true_beta <- c(1,3)
+
+
+ggplot(beta_df, aes(x = param, y = mean)) +
+  geom_pointrange(aes(ymin = lower95, ymax = upper95),
+                  size = 1.1) +
+  geom_hline(aes(yintercept = true_beta[1]),
+             linetype = "dashed", color = "red", size = 0.7) +
+  geom_hline(aes(yintercept = true_beta[2]),
+             linetype = "dashed", color = "blue", size = 0.7) +
+  labs(
+    x = "Parameter",
+    y = "Posterior Estimate",
+    title = "95% Credible Intervals for β Parameters"
+  ) +
+  theme_minimal(base_size = 14)
+
+#sigma_2
+sigma_vec <- as.numeric(sigma_2_post)
+sigma_ci <- quantile(sigma_vec, probs = c(0.025, 0.975))
+c(sigma_mean = mean(sigma_vec), lower95 = sigma_ci[1], upper95 = sigma_ci[2])
+
+sigma_df <- data.frame(
+  param = "sigma_2",
+  mean = mean(sigma_vec),
+  lower95 = sigma_ci[1],
+  upper95 = sigma_ci[2]
+)
+
+true_sigma_2 <- 0.5
+
+ggplot(sigma_df, aes(x = param, y = mean)) +
+  geom_pointrange(aes(ymin = lower95, ymax = upper95),
+                  size = 1.1) +
+  geom_hline(aes(yintercept = true_sigma_2),
+             linetype = "dashed", color = "red", size = 0.7) +
+  labs(
+    x = "Parameter",
+    y = "Posterior Estimate",
+    title = "95% Credible Intervals for Sigma_2 Parameter"
+  ) +
+  theme_minimal(base_size = 14)
+
+#tau_2
+tau_vec <- as.numeric(tau_2_post)
+tau_ci <- quantile(tau_vec, probs = c(0.025, 0.975))
+c(tau_mean = mean(tau_vec), lower95 = tau_ci[1], upper95 = tau_ci[2])
+
+tau_df <- data.frame(
+  param = "tau_2",
+  mean = mean(tau_vec),
+  lower95 = tau_ci[1],
+  upper95 = tau_ci[2]
+)
+
+true_tau_2 <- 0.4
+
+ggplot(tau_df, aes(x = param, y = mean)) +
+  geom_pointrange(aes(ymin = lower95, ymax = upper95),
+                  size = 1.1) +
+  geom_hline(aes(yintercept = true_tau_2),
+             linetype = "dashed", color = "red", size = 0.7) +
+  labs(
+    x = "Parameter",
+    y = "Posterior Estimate",
+    title = "95% Credible Intervals for Sigma_2 Parameter"
+  ) +
+  theme_minimal(base_size = 14)
+
+#alpha
+alpha_vec <- as.numeric(alpha_post)
+alpha_ci <- quantile(alpha_vec, probs = c(0.025, 0.975))
+c(alpha_mean = mean(alpha_vec), lower95 = alpha_ci[1], upper95 = alpha_ci[2])
+
+alpha_df <- data.frame(
+  param = "alpha",
+  mean = mean(alpha_vec),
+  lower95 = alpha_ci[1],
+  upper95 = alpha_ci[2]
+)
+
+true_sigma_2 <- -0.2
+
+ggplot(alpha_df, aes(x = param, y = mean)) +
+  geom_pointrange(aes(ymin = lower95, ymax = upper95),
+                  size = 1.1) +
+  geom_hline(aes(yintercept = true_sigma_2),
+             linetype = "dashed", color = "red", size = 0.7) +
+  labs(
+    x = "Parameter",
+    y = "Posterior Estimate",
+    title = "95% Credible Intervals for Sigma_2 Parameter"
+  ) +
+  theme_minimal(base_size = 14)
+
