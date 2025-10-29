@@ -48,7 +48,7 @@ image.plot(x_seq, y_seq, cov_field, col = terrain.colors(100), main = "Simulated
 
 #Simulate Gaussian random field
 
-sigma_2 <- 0.5
+sigma_2 <- 0.25
 
 S_z <-  sigma_2 * exp(-dists/1)
 
@@ -440,15 +440,14 @@ priors <- list(beta_mean = c(0,0),
                beta_sd = c(10,10),
                beta_prop_sd = c(0.075, 0.075),
                z_mean = 0,
-               a_0_sigma = 0.5,
-               b_0_sigma = 0.5,
+               a_0_sigma = 2,
+               b_0_sigma = 1,
                a_0_tau = 2,
                b_0_tau = 1,
-               phi = 10,
-               z_var = 0.2
+               phi = 10
 )
 
-iters <- 7000
+iters <- 10000
 
 burnin <- 2000
 
@@ -478,7 +477,6 @@ sd(g_post)
 
 mean(z_post)
 sd(z_post)
-
 
 # Posterior Plots ----------------------------------------------------------------
 # Posterior lambda for both sources
@@ -530,109 +528,209 @@ plot(sim$sigma_2[1,], type = "l", main = "sigma_2 trace plot")
 plot(sim$tau_2[1,], type = "l", main = "tau_2 trace plot")
 plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
 
+# Running multiple simulations to show confidence intervals ---------------------
+
+n_sims <- 100
+
+n_sims_df <- data.frame()
+
+for (i in 1:n_sims){
+  cat("Running simulation", i, "of", n_sims, "\n")
+  
+  sim <- driver(parameters, priors, data, iters)
+  
+  beta_post <- sim$beta[, (burnin+1):iters]
+  alpha_post <- sim$alpha[, (burnin+1):iters]
+  sigma_2_post <- sim$sigma_2[, (burnin+1):iters]
+  tau_2_post <- sim$tau_2[, (burnin+1):iters]
+  
+  # Store just summary stats
+   n_sims_df <- rbind(n_sims_df, data.frame(
+    sim = i,
+    
+    # beta parameters
+    beta0_mean = mean(beta_post[1,]), beta0_sd = sd(beta_post[1,]),
+    beta1_mean = mean(beta_post[2,]), beta1_sd = sd(beta_post[2,]),
+    
+    # hyperparameters
+    sigma2_mean = mean(sigma_2_post), sigma2_sd = sd(sigma_2_post),
+    tau2_mean = mean(tau_2_post), tau2_sd = sd(tau_2_post),
+    alpha_mean = mean(alpha_post), alpha_sd = sd(alpha_post)
+    
+  ))
+  
+}
+
 # 95% Confidence Intervals for Estimates ----------------------------------------
 
 #Beta 
-beta_ci_lower <- apply(beta_post, 1, quantile, probs = 0.025)
-beta_ci_upper <- apply(beta_post, 1, quantile, probs = 0.975)
-beta_df <- data.frame(
-  param = paste0("beta", 0:(nrow(beta_post)-1)),
-  mean = apply(beta_post, 1, mean),
-  lower95 = beta_ci_lower,
-  upper95 = beta_ci_upper
-)
-true_beta <- c(1,3)
+n_sims_df$beta0_lower <- n_sims_df$beta0_mean - 1.96*n_sims_df$beta0_sd
+n_sims_df$beta0_upper <- n_sims_df$beta0_mean + 1.96*n_sims_df$beta0_sd
+n_sims_df$covered_beta0 <- (n_sims_df$beta0_lower <= 1 &
+                              n_sims_df$beta0_upper >= 1)
 
+n_sims_df$beta1_lower <- n_sims_df$beta1_mean - 1.96*n_sims_df$beta1_sd
+n_sims_df$beta1_upper <- n_sims_df$beta1_mean + 1.96*n_sims_df$beta1_sd
+n_sims_df$covered_beta1 <- (n_sims_df$beta1_lower <= 3 &
+                              n_sims_df$beta1_upper >= 3)
 
-ggplot(beta_df, aes(x = param, y = mean)) +
-  geom_pointrange(aes(ymin = lower95, ymax = upper95),
-                  size = 1.1) +
-  geom_hline(aes(yintercept = true_beta[1]),
-             linetype = "dashed", color = "red", size = 0.7) +
-  geom_hline(aes(yintercept = true_beta[2]),
-             linetype = "dashed", color = "blue", size = 0.7) +
-  labs(
-    x = "Parameter",
-    y = "Posterior Estimate",
-    title = "95% Credible Intervals for β Parameters"
-  ) +
-  theme_minimal(base_size = 14)
+beta0_covered <- mean(n_sims_df$beta0_lower <= 1 &
+                        n_sims_df$beta0_upper >= 1)
+
+beta1_covered <- mean(n_sims_df$beta1_lower <= 3 &
+                        n_sims_df$beta1_upper >= 3)
+beta0_covered
+beta1_covered
 
 #sigma_2
-sigma_vec <- as.numeric(sigma_2_post)
-sigma_ci <- quantile(sigma_vec, probs = c(0.025, 0.975))
-c(sigma_mean = mean(sigma_vec), lower95 = sigma_ci[1], upper95 = sigma_ci[2])
+n_sims_df$sigma2_lower <- n_sims_df$sigma2_mean - 1.96*n_sims_df$sigma2_sd
+n_sims_df$sigma2_upper <- n_sims_df$sigma2_mean + 1.96*n_sims_df$sigma2_sd
+n_sims_df$covered_sigma2 <- (n_sims_df$sigma2_lower <= 0.25 &
+                              n_sims_df$sigma2_upper >=0.25)
 
-sigma_df <- data.frame(
-  param = "sigma_2",
-  mean = mean(sigma_vec),
-  lower95 = sigma_ci[1],
-  upper95 = sigma_ci[2]
-)
-
-true_sigma_2 <- 0.5
-
-ggplot(sigma_df, aes(x = param, y = mean)) +
-  geom_pointrange(aes(ymin = lower95, ymax = upper95),
-                  size = 1.1) +
-  geom_hline(aes(yintercept = true_sigma_2),
-             linetype = "dashed", color = "red", size = 0.7) +
-  labs(
-    x = "Parameter",
-    y = "Posterior Estimate",
-    title = "95% Credible Intervals for Sigma_2 Parameter"
-  ) +
-  theme_minimal(base_size = 14)
+covered_sigma2 <- mean(n_sims_df$sigma2_lower <= 0.25 &
+                     n_sims_df$sigma2_upper >=0.25)
+covered_sigma2
 
 #tau_2
-tau_vec <- as.numeric(tau_2_post)
-tau_ci <- quantile(tau_vec, probs = c(0.025, 0.975))
-c(tau_mean = mean(tau_vec), lower95 = tau_ci[1], upper95 = tau_ci[2])
+n_sims_df$tau2_lower <- n_sims_df$tau2_mean - 1.96*n_sims_df$tau2_sd
+n_sims_df$tau2_upper <- n_sims_df$tau2_mean + 1.96*n_sims_df$tau2_sd
+n_sims_df$covered_tau2 <- (n_sims_df$tau2_lower <= 0.4 &
+                               n_sims_df$tau2_upper >=0.4)
 
-tau_df <- data.frame(
-  param = "tau_2",
-  mean = mean(tau_vec),
-  lower95 = tau_ci[1],
-  upper95 = tau_ci[2]
-)
-
-true_tau_2 <- 0.4
-
-ggplot(tau_df, aes(x = param, y = mean)) +
-  geom_pointrange(aes(ymin = lower95, ymax = upper95),
-                  size = 1.1) +
-  geom_hline(aes(yintercept = true_tau_2),
-             linetype = "dashed", color = "red", size = 0.7) +
-  labs(
-    x = "Parameter",
-    y = "Posterior Estimate",
-    title = "95% Credible Intervals for Sigma_2 Parameter"
-  ) +
-  theme_minimal(base_size = 14)
+covered_tau2 <- mean(n_sims_df$tau2_lower <= 0.4 &
+                   n_sims_df$tau2_upper >=0.4)
+covered_tau2
 
 #alpha
-alpha_vec <- as.numeric(alpha_post)
-alpha_ci <- quantile(alpha_vec, probs = c(0.025, 0.975))
-c(alpha_mean = mean(alpha_vec), lower95 = alpha_ci[1], upper95 = alpha_ci[2])
+n_sims_df$alpha_lower <- n_sims_df$alpha_mean - 1.96*n_sims_df$alpha_sd
+n_sims_df$alpha_upper <- n_sims_df$alpha_mean + 1.96*n_sims_df$alpha_sd
+n_sims_df$covered_alpha <- (n_sims_df$alpha_lower <= -0.2 &
+                             n_sims_df$alpha_upper >= -0.2)
 
-alpha_df <- data.frame(
-  param = "alpha",
-  mean = mean(alpha_vec),
-  lower95 = alpha_ci[1],
-  upper95 = alpha_ci[2]
-)
+covered_alpha <- mean(n_sims_df$alpha_lower <= -0.2 &
+                    n_sims_df$alpha_upper >= -0.2)
+covered_alpha
 
-true_sigma_2 <- -0.2
-
-ggplot(alpha_df, aes(x = param, y = mean)) +
-  geom_pointrange(aes(ymin = lower95, ymax = upper95),
+#Confidence Interval Plots -------------------------------------------------------
+pdf("confidence_intervals.pdf", width = 8, height = 6)  
+#Betas
+ggplot(n_sims_df, aes(x = sim, y = beta0_mean, 
+                      color = covered_beta0)) +
+  geom_pointrange(aes(ymin = beta0_lower, ymax = beta0_upper),
                   size = 1.1) +
-  geom_hline(aes(yintercept = true_sigma_2),
-             linetype = "dashed", color = "red", size = 0.7) +
+  geom_hline(aes(yintercept = 1),
+             linetype = "dashed", color = "black", size = 0.7) +
+  scale_color_manual(values = c("red","green")) +
   labs(
     x = "Parameter",
     y = "Posterior Estimate",
-    title = "95% Credible Intervals for Sigma_2 Parameter"
+    title = "95% Credible Intervals for" ~ beta[0],
+    color = "Contains truth?"
   ) +
-  theme_minimal(base_size = 14)
+  theme_minimal(base_size = 14) +
+  annotate(
+    "text",
+    x = Inf, y = -Inf,
+    label = paste0("Proportion covered: ", round(beta0_covered, 2)),
+    hjust = 1.1, vjust = -1.5,
+    size = 5
+  ) +
+  coord_cartesian(clip = "off")
 
+ggplot(n_sims_df, aes(x = sim, y = beta1_mean, 
+                      color = covered_beta1)) +
+  geom_pointrange(aes(ymin = beta1_lower, ymax = beta1_upper),
+                  size = 1.1) +
+  geom_hline(aes(yintercept = 3),
+             linetype = "dashed", color = "black", size = 0.7) +
+  scale_color_manual(values = c("red","green")) +
+  labs(
+    x = "Parameter",
+    y = "Posterior Estimate",
+    title = "95% Credible Intervals for" ~ beta[1],
+    color = "Contains truth?"
+  ) +
+  theme_minimal(base_size = 14) +
+  annotate(
+    "text",
+    x = Inf, y = -Inf,
+    label = paste0("Proportion covered: ", round(beta1_covered, 2)),
+    hjust = 1.1, vjust = -1.5,
+    size = 5
+  ) +
+  coord_cartesian(clip = "off")
+
+#Sigma2
+ggplot(n_sims_df, aes(x = sim, y = sigma2_mean, 
+                      color = covered_sigma2)) +
+  geom_pointrange(aes(ymin = sigma2_lower, ymax = sigma2_upper),
+                  size = 1.1) +
+  geom_hline(aes(yintercept = 0.25),
+             linetype = "dashed", color = "black", size = 0.7) +
+  scale_color_manual(values = c("red","green")) +
+  labs(
+    x = "Parameter",
+    y = "Posterior Estimate",
+    title = "95% Credible Intervals for" ~ sigma^2,
+    color = "Contains truth?"
+  ) +
+  theme_minimal(base_size = 14) +
+  annotate(
+    "text",
+    x = Inf, y = -Inf,
+    label = paste0("Proportion covered: ", round(covered_sigma2, 2)),
+    hjust = 1.1, vjust = -1.5,
+    size = 5
+  ) +
+  coord_cartesian(clip = "off")
+
+#Tau2
+ggplot(n_sims_df, aes(x = sim, y = tau2_mean, 
+                      color = covered_tau2)) +
+  geom_pointrange(aes(ymin = tau2_lower, ymax = tau2_upper),
+                  size = 1.1) +
+  geom_hline(aes(yintercept = 0.4),
+             linetype = "dashed", color = "black", size = 0.7) +
+  scale_color_manual(values = c("green","red")) +
+  labs(
+    x = "Parameter",
+    y = "Posterior Estimate",
+    title = "95% Credible Intervals for" ~ tau^2,
+    color = "Contains truth?"
+  ) +
+  theme_minimal(base_size = 14) +
+  annotate(
+    "text",
+    x = Inf, y = -Inf,
+    label = paste0("Proportion covered: ", round(covered_tau2, 2)),
+    hjust = 1.1, vjust = -1.5,
+    size = 5
+  ) +
+  coord_cartesian(clip = "off")
+
+#Alpha
+ggplot(n_sims_df, aes(x = sim, y = alpha_mean, 
+                      color = covered_alpha)) +
+  geom_pointrange(aes(ymin = alpha_lower, ymax = alpha_upper),
+                  size = 1.1) +
+  geom_hline(aes(yintercept = -0.2),
+             linetype = "dashed", color = "black", size = 0.7) +
+  scale_color_manual(values = c("green","red")) +
+  labs(
+    x = "Parameter",
+    y = "Posterior Estimate",
+    title = "95% Credible Intervals for" ~ alpha,
+    color = "Contains truth?"
+  ) +
+  theme_minimal(base_size = 14) +
+  annotate(
+    "text",
+    x = Inf, y = -Inf,
+    label = paste0("Proportion covered: ", round(covered_alpha, 2)),
+    hjust = 1.1, vjust = -1.5,
+    size = 5
+  ) +
+  coord_cartesian(clip = "off")
+
+dev.off()

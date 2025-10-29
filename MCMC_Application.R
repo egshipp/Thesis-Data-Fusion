@@ -22,18 +22,22 @@ manual_loc_trimmed <- manual_loc_mat[
   ),
 ]
 
+x_all <- range(c(auto_loc_mat$x, manual_loc_mat$x, manual_loc_trimmed$x))
+y_all <- range(c(auto_loc_mat$y, manual_loc_mat$y, manual_loc_trimmed$y))
+
 par(mfrow = c(2,2))  
-plot(auto_loc_mat$x, auto_loc_mat$y, main = "Automated Locations")
-plot(manual_loc_mat$x, manual_loc_mat$y, main = "Manual Locations")
-plot(manual_loc_trimmed$x, manual_loc_trimmed$y, main = "Trimmed Manual Locations")
+plot(auto_loc_mat$x, auto_loc_mat$y, main = "Automated Locations", 
+     xlim = x_all, ylim = y_all)
+plot(manual_loc_mat$x, manual_loc_mat$y, main = "Manual Locations", 
+     xlim = x_all, ylim = y_all)
+plot(manual_loc_trimmed$x, manual_loc_trimmed$y, main = "Trimmed Manual Locations", , 
+     xlim = x_all, ylim = y_all)
 par(mfrow = c(1,1))
 
 # Simulating Covariate ----------------------------------------------------------
-all_points <- rbind(auto_loc_mat, manual_loc_mat)
-
 win <- owin(
-  xrange = range(all_points$x),
-  yrange = range(all_points$y)
+  xrange = range(x_all),
+  yrange = range(y_all)
 )
 
 grid_res <- 10
@@ -46,9 +50,6 @@ x_seq <- seq(win$xrange[1] + cell_size/2,
 y_seq <- seq(win$yrange[1] + cell_size/2,
              win$yrange[2] - cell_size/2,
              by = cell_size)
-
-# coords <- as.matrix(expand.grid(y_seq, x_seq))
-# grid_coords <- expand.grid(x = x_seq, y = y_seq)
 
 coords <- as.matrix(expand.grid(y_seq, x_seq))
 grid_coords <- expand.grid(x = x_seq, y = y_seq)
@@ -87,6 +88,9 @@ X_1 <- manual_loc_trimmed
 nn_X_1 <- nncross(manual_loc_trimmed, cov_field_ppp)
 X_1$covariate <- cov_field_ppp$marks[nn_X_1$which]
 
+X_grid$mask_source1 <- with(X_grid,
+                             x >= x_mid & y < y_mid)
+
 ## Source 2 (Automated Locations)
 X_2 <- auto_loc_mat
 nn_X_2 <- nncross(auto_loc_mat, cov_field_ppp)
@@ -97,12 +101,15 @@ X_2$covariate <- cov_field_ppp$marks[nn_X_2$which]
 ## log likelihood function
 loglike <- function(parameters, data) {
   
+  idx_mask1 <- which(X_grid$mask_source1)
+  
   log_lambda_points1 <- parameters$beta[1] + parameters$beta[2] * data$X_1$covariate + parameters$z[data$nn_index_1]
   term1 <- sum(log_lambda_points1)
   
-  log_lambda_grid1 <- parameters$beta[1] + parameters$beta[2] * data$X_grid$covariate + parameters$z
-  lambda_grid1 <- exp(log_lambda_grid1)
-  term2 <- sum(lambda_grid1 * data$cell_area)
+  log_lambda_grid1_full <- parameters$beta[1] + parameters$beta[2] * data$X_grid$covariate + parameters$z
+  
+  lambda_grid1_masked <- exp(log_lambda_grid1_full[idx_mask1])
+  term2 <- sum(lambda_grid1_masked * data$cell_area)
   
   log_lambda_points2 <- parameters$beta[1] + parameters$beta[2] * data$X_2$covariate + parameters$g[data$nn_index_2] + parameters$z[data$nn_index_2]
   term3 <- sum(log_lambda_points2)
@@ -312,7 +319,7 @@ data <- list(X_grid = X_grid,
              cell_size = cell_size, 
              x_seq = x_seq, 
              y_seq = y_seq, 
-             coords = as.matrix(expand.grid(y_seq, x_seq)),
+             coords = as.matrix(expand.grid(x_seq, y_seq)),
              dists = as.matrix(dist(coords)))
 
 
@@ -328,15 +335,15 @@ priors <- list(beta_mean = c(0,0),
                beta_sd = c(10,10), 
                beta_prop_sd = c(0.075, 0.075),
                z_mean = 0,
-               a_0_sigma = 0.5,
-               b_0_sigma = 0.5,
+               a_0_sigma = 2,
+               b_0_sigma = 1,
                a_0_tau = 2,
                b_0_tau = 1,
                phi = 10,
                z_var = 0.2)
 
-iters <- 1000
-burnin <- 0
+iters <- 10000
+burnin <- 2000
 
 # Run driver -----------------------------------------------------------------------
 sim <- driver(parameters, priors, data, iters)
@@ -386,16 +393,24 @@ lambda_mean <- rowMeans(posterior_lambda, na.rm = TRUE)
 
 # Reshape to spatial grid
 lambda_mean_mat <- matrix(lambda_mean,
-                          nrow = length(y_seq),
-                          ncol = length(x_seq),
+                          nrow = length(x_seq),
+                          ncol = length(y_seq),
                           byrow = TRUE)
 
 # Plot posterior mean intensity (on log scale)
+par(mfrow = c(2,2))
 image.plot(x_seq, y_seq, log(lambda_mean_mat),
            main = "Posterior Mean Intensity (log scale)",
            xlab = "x", ylab = "y",
-           col = terrain.colors(100))
-
+           col = terrain.colors(100), 
+           xlim = x_all, ylim = y_all)
+plot(auto_loc_mat$x, auto_loc_mat$y, main = "Automated Locations", 
+     xlim = x_all, ylim = y_all)
+plot(manual_loc_mat$x, manual_loc_mat$y, main = "Manual Locations", 
+     xlim = x_all, ylim = y_all)
+plot(manual_loc_trimmed$x, manual_loc_trimmed$y, main = "Trimmed Manual Locations", 
+     xlim = x_all, ylim = y_all)
+par(mfrow = c(1,1))
 
 # Trace Plots -------------------------------------------------------------------
 par(mfrow = c(1,1))
@@ -407,3 +422,12 @@ plot(sim$sigma_2[1,], type = "l", main = "sigma_2 trace plot")
 plot(sim$tau_2[1,], type = "l", main = "tau_2 trace plot")
 plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
 
+# Testing each function ---------------------------------------------------------
+loglike(parameters, data) # works
+update_betas(parameters, priors, data) #works
+update_g(parameters, priors, data) #works
+update_z(parameters, priors, data) #works
+update_alpha(parameters, priors, data) #works
+update_sigma_2(parameters, priors, data) #works
+update_tau_2(parameters, priors, data) #works
+ 
