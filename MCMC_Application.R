@@ -32,7 +32,12 @@ plot(manual_loc_mat$x, manual_loc_mat$y, main = "Manual Locations",
      xlim = x_all, ylim = y_all)
 plot(manual_loc_trimmed$x, manual_loc_trimmed$y, main = "Trimmed Manual Locations", , 
      xlim = x_all, ylim = y_all)
+
+
+
+points(grid_coords, col= 2)
 par(mfrow = c(1,1))
+
 
 # Simulating Covariate ----------------------------------------------------------
 win <- owin(
@@ -339,7 +344,7 @@ priors <- list(beta_mean = c(0,0),
                b_0_sigma = 1,
                a_0_tau = 2,
                b_0_tau = 1,
-               phi = 10,
+               phi = 0.15,
                z_var = 0.2)
 
 iters <- 10000
@@ -423,11 +428,16 @@ plot(sim$tau_2[1,], type = "l", main = "tau_2 trace plot")
 plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
 
 # Testing each function ---------------------------------------------------------
-loglike(parameters, data) # works
-update_betas(parameters, priors, data) #works
-update_g(parameters, priors, data) #works
-update_z(parameters, priors, data) #works
-update_alpha(parameters, priors, data) #works
-update_sigma_2(parameters, priors, data) #works
-update_tau_2(parameters, priors, data) #works
- 
+# loglike(parameters, data) # works
+# update_betas(parameters, priors, data) #works
+# update_g(parameters, priors, data) #works
+# update_z(parameters, priors, data) #works
+# update_alpha(parameters, priors, data) #works
+# update_sigma_2(parameters, priors, data) #works
+# update_tau_2(parameters, priors, data) #works
+#  
+
+image.plot(x_seq, y_seq, sim$z[,10000],
+           main = "Posterior Mean Intensity (log scale)",
+           xlab = "x", ylab = "y",
+           col = terrain.colors(100))
