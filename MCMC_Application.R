@@ -18,7 +18,7 @@ x_mid <- mean(range(manual_loc_mat$x))
 y_mid <- mean(range(manual_loc_mat$y))
 manual_loc_trimmed <- manual_loc_mat[
   (
-    manual_loc_mat$x >= x_mid & manual_loc_mat$y < y_mid
+    manual_loc_mat$x >= x_mid & manual_loc_mat$y < y_mid | manual_loc_mat$x<= x_mid & manual_loc_mat$y > y_mid
   ),
 ]
 
@@ -32,18 +32,19 @@ plot(manual_loc_mat$x, manual_loc_mat$y, main = "Manual Locations",
      xlim = x_all, ylim = y_all)
 plot(manual_loc_trimmed$x, manual_loc_trimmed$y, main = "Trimmed Manual Locations", , 
      xlim = x_all, ylim = y_all)
-
-
-
-points(grid_coords, col= 2)
+plot(grid_coords, main = "Grid Coordinates (check)")
 par(mfrow = c(1,1))
 
 
-# Simulating Covariate ----------------------------------------------------------
+# Creating Window ---------------------------------------------------------------
+x_bound <- c(-70.52832 - 0.05, -70.01345 + 0.05)
+y_bound <- c(41.77413 - 0.05,  42.16180 + 0.05)
+
 win <- owin(
-  xrange = range(x_all),
-  yrange = range(y_all)
+  xrange = x_bound,
+  yrange = y_bound
 )
+
 
 grid_res <- 10
 
@@ -51,75 +52,57 @@ cell_size <- diff(win$xrange) / grid_res
 
 x_seq <- seq(win$xrange[1] + cell_size/2,
              win$xrange[2] - cell_size/2,
-             by = cell_size)
+             length.out = grid_res)
 y_seq <- seq(win$yrange[1] + cell_size/2,
              win$yrange[2] - cell_size/2,
-             by = cell_size)
+             length.out = grid_res)
 
-coords <- as.matrix(expand.grid(y_seq, x_seq))
+coords <- as.matrix(expand.grid(x_seq, y_seq))
 grid_coords <- expand.grid(x = x_seq, y = y_seq)
 
-dists <- as.matrix(dist(coords))
-n <- nrow(coords)
+grid_ppp <- ppp(x = grid_coords$x, y = grid_coords$y, window = win)
 
-S <- 0.2 * exp(-dists/1.5)
-
-mu <- rep(0, n)
-
-covariate <- as.vector(rcpp_rmvnorm(1,S,mu))
-
-cov_field <- matrix(covariate, 
-                    nrow = length(y_seq), 
-                    ncol = length(x_seq),
-                    byrow = TRUE)
-
-cov_field_ppp <- ppp(x = grid_coords$x, 
-                     y = grid_coords$y,
-                     window = win, 
-                     marks = covariate)
-
-image.plot(x_seq, y_seq, t(cov_field)[, nrow(cov_field):1], col = terrain.colors(100), main = "Simulated Exponential Covariate")
-
-
+plot(grid_ppp, xlim = x_bound, ylim = y_bound, axes = TRUE)
+  abline(v = c(-70.52832, -70.01345), col = "red")
+  abline(h = c(41.77413,  42.16180), col = "red")
 # Dataframe creation for MCMC ---------------------------------------------------
 
 ## Grid
 X_grid <- as.data.frame(coords)
   colnames(X_grid) <- c("x", "y")
-  X_grid$covariate <- covariate
   
 ## Source 1 (Manual Locations - Trimmed)
 X_1 <- manual_loc_trimmed
-nn_X_1 <- nncross(manual_loc_trimmed, cov_field_ppp)
-X_1$covariate <- cov_field_ppp$marks[nn_X_1$which]
-
-X_grid$mask_source1 <- with(X_grid,
-                             x >= x_mid & y < y_mid)
+nn_X_1 <- nncross(manual_loc_trimmed, grid_ppp)
 
 ## Source 2 (Automated Locations)
+
 X_2 <- auto_loc_mat
-nn_X_2 <- nncross(auto_loc_mat, cov_field_ppp)
-X_2$covariate <- cov_field_ppp$marks[nn_X_2$which]
+nn_X_2 <- nncross(auto_loc_mat, grid_ppp)
+
+par(mfrow = c(2,2))
+plot(X_grid$x, X_grid$y, xlim = x_bound, ylim = y_bound, main = "Grid")
+plot(X_1, xlim = x_bound, ylim = y_bound, main = "Source 1 Point Process")
+plot(X_2, xlim = x_bound, ylim = y_bound, main = "Source 2 Point Process")
+par(mfrow = c(1,1))
 
 # MCMC --------------------------------------------------------------------------
 
 ## log likelihood function
 loglike <- function(parameters, data) {
   
-  idx_mask1 <- which(X_grid$mask_source1)
-  
-  log_lambda_points1 <- parameters$beta[1] + parameters$beta[2] * data$X_1$covariate + parameters$z[data$nn_index_1]
+  log_lambda_points1 <- parameters$beta[1] + parameters$z[data$nn_index_1]
   term1 <- sum(log_lambda_points1)
   
-  log_lambda_grid1_full <- parameters$beta[1] + parameters$beta[2] * data$X_grid$covariate + parameters$z
+  log_lambda_grid1_full <- parameters$beta[1] + parameters$z
   
-  lambda_grid1_masked <- exp(log_lambda_grid1_full[idx_mask1])
+  lambda_grid1_masked <- exp(log_lambda_grid1_full)
   term2 <- sum(lambda_grid1_masked * data$cell_area)
   
-  log_lambda_points2 <- parameters$beta[1] + parameters$beta[2] * data$X_2$covariate + parameters$g[data$nn_index_2] + parameters$z[data$nn_index_2]
+  log_lambda_points2 <- parameters$beta[1] + parameters$g[data$nn_index_2] + parameters$z[data$nn_index_2]
   term3 <- sum(log_lambda_points2)
   
-  log_lambda_grid2 <- parameters$beta[1] + parameters$beta[2] * data$X_grid$covariate + parameters$g + parameters$z
+  log_lambda_grid2 <- parameters$beta[1] + parameters$g + parameters$z
   lambda_grid2 <- exp(log_lambda_grid2)
   term4 <- sum(lambda_grid2 * data$cell_area)
   
@@ -131,7 +114,7 @@ loglike <- function(parameters, data) {
 ## Updating slope estimates using Metropolis Hastings MCMC
 update_betas<- function(parameters, priors, data){
   
-  beta_cand <- rnorm(length(parameters$beta), mean = parameters$beta, sd = priors$beta_prop_sd) 
+  beta_cand <- rnorm(1, mean = parameters$beta, sd = priors$beta_prop_sd) 
   
   params_top <- list(beta = beta_cand, g = parameters$g, z = parameters$z)
   params_bottom <- list(beta = parameters$beta, g = parameters$g, z = parameters$z)
@@ -154,7 +137,7 @@ update_betas<- function(parameters, priors, data){
 update_g <- function(parameters, priors, data){
   
   # Choosing ellipse (nu) from prior (g)
-  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$g)), Sigma = parameters$tau_2 * exp(-dists/1.5)))
+  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$g)), Sigma = parameters$tau_2 * exp(-data$dists/1.5)))
   
   # Log likelihood threshold (finding log(y))
   
@@ -193,7 +176,7 @@ update_g <- function(parameters, priors, data){
 update_z <- function(parameters, priors, data){
   
   # Choosing ellipse (nu) from prior (g)
-  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$z)), Sigma = parameters$sigma_2 * exp(-dists/1)))
+  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$z)), Sigma = parameters$sigma_2 * exp(-data$dists/1)))
   
   # Log likelihood threshold (finding log(y))
   
@@ -329,26 +312,26 @@ data <- list(X_grid = X_grid,
 
 
 parameters <- list(
-             beta = c(0, 0),       
+             beta = 0,       
              sigma_2 = 1,          
              alpha = 0,            
              tau_2 = 1,            
              g = rep(0, nrow(data$coords)),  
              z = rep(0, nrow(data$coords))   
 )
-priors <- list(beta_mean = c(0,0), 
-               beta_sd = c(10,10), 
-               beta_prop_sd = c(0.075, 0.075),
+priors <- list(beta_mean = 0, 
+               beta_sd = 10, 
+               beta_prop_sd = 0.075,
                z_mean = 0,
                a_0_sigma = 2,
                b_0_sigma = 1,
                a_0_tau = 2,
                b_0_tau = 1,
-               phi = 0.15,
+               phi = 0.1,
                z_var = 0.2)
 
 iters <- 10000
-burnin <- 2000
+burnin <- 3000
 
 # Run driver -----------------------------------------------------------------------
 sim <- driver(parameters, priors, data, iters)
@@ -360,8 +343,8 @@ tau_2_post <- sim$tau_2[,(burnin+1):iters]
 g_post <- sim$g[,(burnin+1):iters]
 z_post <- sim$z[,(burnin+1):iters]
 
-apply(beta_post, 1, mean)
-apply(beta_post, 1, sd)
+mean(beta_post)
+sd(beta_post)
 
 mean(sigma_2_post)
 sd(sigma_2_post)
@@ -384,12 +367,8 @@ sd(z_post)
 posterior_lambda <- matrix(NA, nrow = nrow(X_grid), ncol = (iters - burnin))
 
 for (m in 1:(iters - burnin)) {
-  beta_m <- beta_post[, m]
-  
-  # Compute log intensity for each location
-  log_lambda_m <- beta_m[1] + beta_m[2] * covariate + z_post[, m]
-  
-  # Exponentiate for intensity
+  beta_m <- beta_post[m]  # intercept
+  log_lambda_m <- beta_m + z_post[, m]
   posterior_lambda[, m] <- exp(log_lambda_m)
 }
 
@@ -420,7 +399,6 @@ par(mfrow = c(1,1))
 # Trace Plots -------------------------------------------------------------------
 par(mfrow = c(1,1))
 plot(sim$beta[1,], type = "l", main = "Beta 1 Trace Plot")
-plot(sim$beta[2,], type = "l", main = "Beta 2 Trace Plot")
 plot(sim$z[1,], type = "l", main = "z trace plot")
 plot(sim$g[1,], type = "l", main = "g trace plot")
 plot(sim$sigma_2[1,], type = "l", main = "sigma_2 trace plot")

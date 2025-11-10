@@ -537,6 +537,178 @@ n_sims_df <- data.frame()
 for (i in 1:n_sims){
   cat("Running simulation", i, "of", n_sims, "\n")
   
+  #Simulate Covariate
+  win <- owin(xrange = c(0, 10), yrange = c(0, 10))
+  
+  grid_res <- 10
+  
+  cell_size <- diff(win$xrange) / grid_res
+  
+  x_seq <- seq(win$xrange[1] + cell_size/2,
+               win$xrange[2] - cell_size/2,
+               by = cell_size)
+  y_seq <- seq(win$yrange[1] + cell_size/2,
+               win$yrange[2] - cell_size/2,
+               by = cell_size)
+  
+  coords <- as.matrix(expand.grid(y_seq, x_seq))
+  grid_coords <- expand.grid(x = y_seq, y = x_seq)
+  
+  dists <- as.matrix(dist(coords))
+  n <- nrow(coords)
+  
+  S <- 0.2 * exp(-dists/1.5)
+  
+  mu <- rep(0, n)
+  
+  covariate <- as.vector(rcpp_rmvnorm(1,S,mu))
+  
+  cov_field <- matrix(covariate,
+                      nrow = grid_res,
+                      ncol = grid_res,
+                      byrow = TRUE)
+  
+  cov_field_ppp <- ppp(x = grid_coords$x,
+                       y = grid_coords$y,
+                       window = win,
+                       marks = covariate)
+  
+  #Simulate Gaussian random field
+  
+  sigma_2 <- 0.25
+  
+  S_z <-  sigma_2 * exp(-dists/1)
+  
+  z <- as.vector(rcpp_rmvnorm(1,S_z,mu))
+  
+  z_mat <- matrix(z, nrow = length(x_seq), ncol = length(y_seq))
+  
+  z_ppp <- ppp(x = grid_coords$x,
+               y = grid_coords$y,
+               window = win,
+               marks = z)
+  
+  # Simulate LGCP
+  b_0 <- 1
+  b_1 <- 3
+  
+  lambda <- exp(b_0 + b_1*(cov_field) + z)
+  lambda_im <- im(lambda, xcol = x_seq, yrow = y_seq)
+  
+  lgcp_sim <- rpoispp(lambda_im)
+  
+  plot(lgcp_sim)
+  
+  # Discretize using spatstat
+  
+  lgcp_discretize <- pixellate(lgcp_sim, eps = 1)
+  
+  # Source 1  -----------
+  nrow <- length(lgcp_discretize$yrow)
+  ncol <- length(lgcp_discretize$xcol)
+  
+  x_min_subwindow1 <- 0
+  x_max_subwindow1 <- 5
+  y_min_subwindow1 <- 5
+  y_max_subwindow1 <- 10
+  
+  x_min_subwindow2 <- 5
+  x_max_subwindow2 <- 10
+  y_min_subwindow2 <- 0
+  y_max_subwindow2 <- 5
+  
+  sub_window1 <- owin(xrange = c(x_min_subwindow1, x_max_subwindow1), yrange = c(y_min_subwindow1, y_max_subwindow1))
+  
+  sub_window2 <- owin(xrange = c(x_min_subwindow2, x_max_subwindow2), yrange = c(y_min_subwindow2, y_max_subwindow2))
+  
+  lambda_1 <- lgcp_discretize
+  
+  lgcp_1_sub1 <- rpoispp(lambda_1[sub_window1])
+  lgcp_1_sub2 <- rpoispp(lambda_1[sub_window2])
+  
+  lgcp_1 <- superimpose(lgcp_1_sub1, lgcp_1_sub2, W = owin(c(0,10), c(0,10)))
+  
+  # Source 2 --------
+  
+  tau_2 <- 0.4
+  S_g <- tau_2 * exp(-dists/1.5)
+  alpha <- -0.2
+  
+  #g <- rnorm(nrow * ncol, alpha, tau_2)
+  g <- as.vector(rcpp_rmvnorm(1,S_g,alpha))
+  
+  exp_g <- exp(g)
+  
+  lambda_2 <- lgcp_discretize * exp_g
+  
+  lgcp_2 <- rpoispp(lambda_2)
+  
+  # Data frame creation -----
+  
+  ## X grid
+  X_grid <- as.data.frame(coords)
+  colnames(X_grid) <- c("x", "y")
+  X_grid$covariate <- covariate
+  
+  ## Source 1 (small var)
+  X_1 <- as.data.frame(lgcp_1)
+  nn_X_1 <- nncross(lgcp_1, cov_field_ppp)
+  X_1$covariate <- cov_field_ppp$marks[nn_X_1$which]
+  
+  # making a mask for X-grid to be used with source 1
+  inside_sub1 <- with(X_grid,
+                      x >= x_min_subwindow1 & x <= x_max_subwindow1 &
+                        y >= y_min_subwindow1 & y <= y_max_subwindow1)
+  
+  inside_sub2 <- with(X_grid,
+                      x >= x_min_subwindow2 & x <= x_max_subwindow2 &
+                        y >= y_min_subwindow2 & y <= y_max_subwindow2)
+  
+  X_grid$mask_source1 <- inside_sub1 | inside_sub2
+  
+  ## Source 2 (large var)
+  X_2 <- as.data.frame(lgcp_2)
+  nn_X_2 <- nncross(lgcp_2, cov_field_ppp)
+  X_2$covariate <- cov_field_ppp$marks[nn_X_2$which]
+  
+  data <- list(X_grid = X_grid,
+               X_1 = X_1,
+               X_2 = X_2,
+               cell_area  = (diff(win$xrange) / grid_res) * (diff(win$yrange) / grid_res),
+               nn_index_1 = nn_X_1$which,
+               nn_index_2 = nn_X_2$which,
+               win = win,
+               grid_res = 10,
+               cell_size = cell_size,
+               x_seq = x_seq,
+               y_seq = y_seq,
+               coords = as.matrix(expand.grid(y_seq, x_seq)),
+               dists_z = as.matrix(dist(coords)))
+  
+  parameters <- list(beta = c(0,0),
+                     g = g,
+                     z = z,
+                     sigma_2 = sigma_2,
+                     alpha = alpha,
+                     tau_2 = tau_2)
+  
+  priors <- list(beta_mean = c(0,0),
+                 beta_sd = c(10,10),
+                 beta_prop_sd = c(0.075, 0.075),
+                 z_mean = 0,
+                 a_0_sigma = 2,
+                 b_0_sigma = 1,
+                 a_0_tau = 2,
+                 b_0_tau = 1,
+                 phi = 10
+  )
+  
+  iters <- 10000
+  
+  burnin <- 1000
+  
+  # Run simulation ----------
+  
   sim <- driver(parameters, priors, data, iters)
   
   beta_post <- sim$beta[, (burnin+1):iters]
@@ -558,8 +730,8 @@ for (i in 1:n_sims){
     alpha_mean = mean(alpha_post), alpha_sd = sd(alpha_post)
     
   ))
-  
 }
+
 
 # 95% Confidence Intervals for Estimates ----------------------------------------
 
@@ -613,7 +785,7 @@ covered_alpha <- mean(n_sims_df$alpha_lower <= -0.2 &
 covered_alpha
 
 #Confidence Interval Plots -------------------------------------------------------
-pdf("confidence_intervals.pdf", width = 8, height = 6)  
+pdf("credible_intervals.pdf", width = 8, height = 6)  
 #Betas
 ggplot(n_sims_df, aes(x = sim, y = beta0_mean, 
                       color = covered_beta0)) +
