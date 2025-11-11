@@ -254,7 +254,7 @@ update_betas<- function(parameters, priors, data){
 update_g <- function(parameters, priors, data){
 
   # Choosing ellipse (nu) from prior (g)
-  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$g)), Sigma = parameters$tau_2 * exp(-dists/1.5)))
+  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$g)), Sigma = parameters$tau_2 * exp(-data$dists/1.5)))
 
   # Log likelihood threshold (finding log(y))
 
@@ -293,7 +293,7 @@ update_g <- function(parameters, priors, data){
 update_z <- function(parameters, priors, data){
 
   # Choosing ellipse (nu) from prior (g)
-  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$z)), Sigma = parameters$sigma_2 * exp(-dists/1)))
+  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$z)), Sigma = parameters$sigma_2 * exp(-data$dists/1)))
 
   # Log likelihood threshold (finding log(y))
 
@@ -427,7 +427,7 @@ data <- list(X_grid = X_grid,
              x_seq = x_seq,
              y_seq = y_seq,
              coords = as.matrix(expand.grid(y_seq, x_seq)),
-             dists_z = as.matrix(dist(coords)))
+             dists = as.matrix(dist(coords)))
 
 parameters <- list(beta = c(0,0),
                    g = g,
@@ -449,7 +449,7 @@ priors <- list(beta_mean = c(0,0),
 
 iters <- 10000
 
-burnin <- 2000
+burnin <- 3000
 
 sim <- driver(parameters, priors, data, iters) # took 20 min to run with res = 20
 

@@ -3,6 +3,10 @@ library(spatstat)
 library(fields)
 library(FastGP)
 library(MASS)
+library(maps)
+
+# Cape Code Bay, Massachusetts Map ---------------------------------------------
+map_data <- map("state", "massachusetts", plot = FALSE)
 
 # Data ---------------------------------------------------------------------------
 automated_locations <- readRDS("C:/Users/Elena/Desktop/Thesis/Thesis-Data-Fusion/automated_locations.rds")
@@ -28,6 +32,7 @@ y_all <- range(c(auto_loc_mat$y, manual_loc_mat$y, manual_loc_trimmed$y))
 par(mfrow = c(2,2))  
 plot(auto_loc_mat$x, auto_loc_mat$y, main = "Automated Locations", 
      xlim = x_all, ylim = y_all)
+  map("state", "massachusetts", add = TRUE)
 plot(manual_loc_mat$x, manual_loc_mat$y, main = "Manual Locations", 
      xlim = x_all, ylim = y_all)
 plot(manual_loc_trimmed$x, manual_loc_trimmed$y, main = "Trimmed Manual Locations", , 
@@ -405,17 +410,21 @@ plot(sim$sigma_2[1,], type = "l", main = "sigma_2 trace plot")
 plot(sim$tau_2[1,], type = "l", main = "tau_2 trace plot")
 plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
 
-# Testing each function ---------------------------------------------------------
-# loglike(parameters, data) # works
-# update_betas(parameters, priors, data) #works
-# update_g(parameters, priors, data) #works
-# update_z(parameters, priors, data) #works
-# update_alpha(parameters, priors, data) #works
-# update_sigma_2(parameters, priors, data) #works
-# update_tau_2(parameters, priors, data) #works
-#  
+lambda_mean_mat_im <- im(lambda_mean_mat,  xcol = x_seq, 
+                         yrow = y_seq)
 
-image.plot(x_seq, y_seq, sim$z[,10000],
-           main = "Posterior Mean Intensity (log scale)",
-           xlab = "x", ylab = "y",
-           col = terrain.colors(100))
+post_pp <- rpoispp(lambda_mean_mat_im)
+
+par(mfrow = c(2,2)) 
+plot(post_pp, main = "Posterior Generated Point Process", xlim = x_all, ylim = y_all, axes = TRUE)
+  map("state", "massachusetts", add = TRUE)
+plot(auto_loc_mat$x, auto_loc_mat$y, main = "Automated Locations", 
+     xlim = x_all, ylim = y_all)
+  map("state", "massachusetts", add = TRUE)
+plot(manual_loc_mat$x, manual_loc_mat$y, main = "Manual Locations", 
+     xlim = x_all, ylim = y_all)
+  map("state", "massachusetts", add = TRUE)
+plot(manual_loc_trimmed$x, manual_loc_trimmed$y, main = "Trimmed Manual Locations", , 
+     xlim = x_all, ylim = y_all)
+  map("state", "massachusetts", add = TRUE)
+par(mfrow = c(1,1))
