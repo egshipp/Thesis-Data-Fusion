@@ -205,14 +205,14 @@ quilt.plot(X_grid$x, X_grid$y, X_grid$covariate)
 
 ## log likelihood function
 loglike <- function(parameters, data) {
-  
+
   idx_mask1 <- which(X_grid$mask_source1)
 
   log_lambda_points1 <- parameters$beta[1] + parameters$beta[2] * data$X_1$covariate + parameters$z[data$nn_index_1]
   term1 <- sum(log_lambda_points1)
 
   log_lambda_grid1_full <- parameters$beta[1] + parameters$beta[2] * data$X_grid$covariate + parameters$z
-  
+
   lambda_grid1_masked <- exp(log_lambda_grid1_full[idx_mask1])
   term2 <- sum(lambda_grid1_masked * data$cell_area)
 
@@ -368,7 +368,7 @@ update_alpha <- function(parameters, priors, data){
   mu_post <- (( sum(parameters$g) / parameters$tau_2 )) / denom
   sigma_post <- sqrt(1 / denom)
 
-  parameters$alpha <- rnorm(1, mean = mu_post, sd = sigma_post) 
+  parameters$alpha <- rnorm(1, mean = mu_post, sd = sigma_post)
 
   return(parameters)
 }
@@ -422,7 +422,7 @@ data <- list(X_grid = X_grid,
              nn_index_1 = nn_X_1$which,
              nn_index_2 = nn_X_2$which,
              win = win,
-             grid_res = 20,
+             grid_res = 10,
              cell_size = cell_size,
              x_seq = x_seq,
              y_seq = y_seq,
@@ -528,7 +528,7 @@ plot(sim$sigma_2[1,], type = "l", main = "sigma_2 trace plot")
 plot(sim$tau_2[1,], type = "l", main = "tau_2 trace plot")
 plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
 
-# Running multiple simulations to show confidence intervals ---------------------
+# Running multiple simulations to show credible intervals ---------------------
 
 n_sims <- 100
 
@@ -864,7 +864,7 @@ ggplot(n_sims_df, aes(x = sim, y = tau2_mean,
                   size = 1.1) +
   geom_hline(aes(yintercept = 0.4),
              linetype = "dashed", color = "black", size = 0.7) +
-  scale_color_manual(values = c("green","red")) +
+  scale_color_manual(values = c("red","green")) +
   labs(
     x = "Parameter",
     y = "Posterior Estimate",
@@ -888,7 +888,7 @@ ggplot(n_sims_df, aes(x = sim, y = alpha_mean,
                   size = 1.1) +
   geom_hline(aes(yintercept = -0.2),
              linetype = "dashed", color = "black", size = 0.7) +
-  scale_color_manual(values = c("green","red")) +
+  scale_color_manual(values = c("red","green")) +
   labs(
     x = "Parameter",
     y = "Posterior Estimate",

@@ -5,9 +5,6 @@ library(FastGP)
 library(MASS)
 library(maps)
 
-# Cape Code Bay, Massachusetts Map ---------------------------------------------
-map_data <- map("state", "massachusetts", plot = FALSE)
-
 # Data ---------------------------------------------------------------------------
 automated_locations <- readRDS("C:/Users/Elena/Desktop/Thesis/Thesis-Data-Fusion/automated_locations.rds")
 manual_locations <- readRDS("C:/Users/Elena/Desktop/Thesis/Thesis-Data-Fusion/manual_locations.rds")
@@ -35,8 +32,10 @@ plot(auto_loc_mat$x, auto_loc_mat$y, main = "Automated Locations",
   map("state", "massachusetts", add = TRUE)
 plot(manual_loc_mat$x, manual_loc_mat$y, main = "Manual Locations", 
      xlim = x_all, ylim = y_all)
+  map("state", "massachusetts", add = TRUE)
 plot(manual_loc_trimmed$x, manual_loc_trimmed$y, main = "Trimmed Manual Locations", , 
      xlim = x_all, ylim = y_all)
+  map("state", "massachusetts", add = TRUE)
 plot(grid_coords, main = "Grid Coordinates (check)")
 par(mfrow = c(1,1))
 
@@ -142,7 +141,7 @@ update_betas<- function(parameters, priors, data){
 update_g <- function(parameters, priors, data){
   
   # Choosing ellipse (nu) from prior (g)
-  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$g)), Sigma = parameters$tau_2 * exp(-data$dists/1.5)))
+  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$g)), Sigma = parameters$tau_2 * exp(-data$dists/0.05)))
   
   # Log likelihood threshold (finding log(y))
   
@@ -181,7 +180,7 @@ update_g <- function(parameters, priors, data){
 update_z <- function(parameters, priors, data){
   
   # Choosing ellipse (nu) from prior (g)
-  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$z)), Sigma = parameters$sigma_2 * exp(-data$dists/1)))
+  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$z)), Sigma = parameters$sigma_2 * exp(-data$dists/0.075)))
   
   # Log likelihood threshold (finding log(y))
   
@@ -393,6 +392,7 @@ image.plot(x_seq, y_seq, log(lambda_mean_mat),
            xlab = "x", ylab = "y",
            col = terrain.colors(100), 
            xlim = x_all, ylim = y_all)
+  map("state", "massachusetts", add = TRUE)
 plot(auto_loc_mat$x, auto_loc_mat$y, main = "Automated Locations", 
      xlim = x_all, ylim = y_all)
 plot(manual_loc_mat$x, manual_loc_mat$y, main = "Manual Locations", 
