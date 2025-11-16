@@ -4,10 +4,18 @@ library(fields)
 library(FastGP)
 library(MASS)
 library(maps)
+library(sf)
+
+# Massachusetts map --------------------------------------------------------------
+mass_map <- maps::map("state", "massachusetts", plot = FALSE, fill = TRUE)
+
+mass_poly <- sf::st_as_sf(mass_map) |> 
+  sf::st_cast("POLYGON") |>
+  st_transform(4326) 
 
 # Data ---------------------------------------------------------------------------
-automated_locations <- readRDS("C:/Users/Elena/Desktop/Thesis/Thesis-Data-Fusion/automated_locations.rds")
-manual_locations <- readRDS("C:/Users/Elena/Desktop/Thesis/Thesis-Data-Fusion/manual_locations.rds")
+automated_locations <- readRDS("automated_locations.rds")
+manual_locations <- readRDS("manual_locations.rds")
 
 auto_loc_mat <- as.data.frame(automated_locations)
   colnames(auto_loc_mat) = c("x","y")
@@ -15,13 +23,13 @@ auto_loc_mat <- as.data.frame(automated_locations)
 manual_loc_mat <- as.data.frame(manual_locations) # Over entire window
   colnames(manual_loc_mat) = c("x","y")
   
-x_mid <- mean(range(manual_loc_mat$x))
-y_mid <- mean(range(manual_loc_mat$y))
-manual_loc_trimmed <- manual_loc_mat[
-  (
-    manual_loc_mat$x >= x_mid & manual_loc_mat$y < y_mid | manual_loc_mat$x<= x_mid & manual_loc_mat$y > y_mid
-  ),
-]
+# x_mid <- mean(range(manual_loc_mat$x))
+# y_mid <- mean(range(manual_loc_mat$y))
+# manual_loc_trimmed <- manual_loc_mat[
+#   (
+#     manual_loc_mat$x >= x_mid & manual_loc_mat$y < y_mid | manual_loc_mat$x<= x_mid & manual_loc_mat$y > y_mid
+#   ),
+# ]
 
 x_all <- range(c(auto_loc_mat$x, manual_loc_mat$x, manual_loc_trimmed$x))
 y_all <- range(c(auto_loc_mat$y, manual_loc_mat$y, manual_loc_trimmed$y))
@@ -33,12 +41,10 @@ plot(auto_loc_mat$x, auto_loc_mat$y, main = "Automated Locations",
 plot(manual_loc_mat$x, manual_loc_mat$y, main = "Manual Locations", 
      xlim = x_all, ylim = y_all)
   map("state", "massachusetts", add = TRUE)
-plot(manual_loc_trimmed$x, manual_loc_trimmed$y, main = "Trimmed Manual Locations", , 
-     xlim = x_all, ylim = y_all)
-  map("state", "massachusetts", add = TRUE)
-plot(grid_coords, main = "Grid Coordinates (check)")
+# plot(manual_loc_trimmed$x, manual_loc_trimmed$y, main = "Trimmed Manual Locations", , 
+#      xlim = x_all, ylim = y_all)
+#   map("state", "massachusetts", add = TRUE)
 par(mfrow = c(1,1))
-
 
 # Creating Window ---------------------------------------------------------------
 x_bound <- c(-70.52832 - 0.05, -70.01345 + 0.05)
@@ -69,6 +75,33 @@ grid_ppp <- ppp(x = grid_coords$x, y = grid_coords$y, window = win)
 plot(grid_ppp, xlim = x_bound, ylim = y_bound, axes = TRUE)
   abline(v = c(-70.52832, -70.01345), col = "red")
   abline(h = c(41.77413,  42.16180), col = "red")
+
+#Converting Data Matrices to Shape files ----------------------------------------
+auto_sf <- st_as_sf(auto_loc_mat, coords = c("x", "y"), crs = 4326)
+manual_sf <- st_as_sf(manual_loc_mat, coords = c("x", "y"), crs = 4326)
+grid_sf <- st_as_sf(grid_coords, coords = c("x", "y"), crs = 4326)
+
+auto_on_land <- st_intersects(auto_sf, mass_poly, sparse = FALSE)
+
+auto_water <- auto_sf[!auto_on_land, ]
+
+manual_on_land <- st_intersects(manual_sf, mass_poly, sparse = FALSE)
+manual_water <- manual_sf[!manual_on_land, ]
+
+grid_on_land <- st_intersects(grid_sf, mass_poly, sparse = FALSE)
+grid_water <- grid_sf[!grid_on_land, ]
+
+
+par(mfrow = c(2,2))  
+plot(auto_loc_mat$x, auto_loc_mat$y, main = "Automated Locations", 
+     xlim = x_all, ylim = y_all)
+map("state", "massachusetts", add = TRUE)
+plot(manual_loc_mat$x, manual_loc_mat$y, main = "Manual Locations", 
+     xlim = x_all, ylim = y_all)
+map("state", "massachusetts", add = TRUE)
+
+par(mfrow = c(1,1))
+
 # Dataframe creation for MCMC ---------------------------------------------------
 
 ## Grid
@@ -76,8 +109,11 @@ X_grid <- as.data.frame(coords)
   colnames(X_grid) <- c("x", "y")
   
 ## Source 1 (Manual Locations - Trimmed)
-X_1 <- manual_loc_trimmed
-nn_X_1 <- nncross(manual_loc_trimmed, grid_ppp)
+# X_1 <- manual_loc_trimmed
+# nn_X_1 <- nncross(manual_loc_trimmed, grid_ppp)
+  
+X_1 <- manual_loc_mat
+nn_X_1 <- nncross(manual_loc_mat, grid_ppp)
 
 ## Source 2 (Automated Locations)
 
@@ -397,8 +433,8 @@ plot(auto_loc_mat$x, auto_loc_mat$y, main = "Automated Locations",
      xlim = x_all, ylim = y_all)
 plot(manual_loc_mat$x, manual_loc_mat$y, main = "Manual Locations", 
      xlim = x_all, ylim = y_all)
-plot(manual_loc_trimmed$x, manual_loc_trimmed$y, main = "Trimmed Manual Locations", 
-     xlim = x_all, ylim = y_all)
+# plot(manual_loc_trimmed$x, manual_loc_trimmed$y, main = "Trimmed Manual Locations", 
+#      xlim = x_all, ylim = y_all)
 par(mfrow = c(1,1))
 
 # Trace Plots -------------------------------------------------------------------

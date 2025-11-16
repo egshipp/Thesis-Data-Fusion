@@ -4,7 +4,7 @@ library(fields)
 library(FastGP)
 library(MASS)
 library(ggplot2)
-
+library(coda)
 
 # True LGCP --------------------------------------------------------------------
 # Simulate Covariate
@@ -462,21 +462,28 @@ z_post <- sim$z[,(burnin+1):iters]
 
 apply(beta_post, 1, mean)
 apply(beta_post, 1, sd)
+quantile(beta_post[1,], c(0.025, 0.975))
+quantile(beta_post[2,], c(0.025, 0.975))
 
 mean(sigma_2_post)
 sd(sigma_2_post)
+quantile(sigma_2_post, c(.025,0.975))
 
 mean(tau_2_post)
 sd(tau_2_post)
+quantile(tau_2_post, c(.025,0.975))
 
 mean(alpha_post)
 sd(alpha_post)
+quantile(alpha_post, c(.025,0.975))
 
 mean(g_post)
 sd(g_post)
+quantile(g_post, c(.025,0.975))
 
 mean(z_post)
 sd(z_post)
+quantile(z_post, c(.025,0.975))
 
 # Posterior Plots ----------------------------------------------------------------
 # Posterior lambda for both sources
@@ -721,14 +728,31 @@ for (i in 1:n_sims){
     sim = i,
     
     # beta parameters
-    beta0_mean = mean(beta_post[1,]), beta0_sd = sd(beta_post[1,]),
-    beta1_mean = mean(beta_post[2,]), beta1_sd = sd(beta_post[2,]),
+    beta0_mean = mean(beta_post[1,]), 
+    beta0_sd = sd(beta_post[1,]),
+    beta0_lower = quantile(beta_post[1,], 0.025),
+    beta0_upper = quantile(beta_post[1,], 0.975),
+    
+    beta1_mean = mean(beta_post[2,]), 
+    beta1_sd = sd(beta_post[2,]),
+    beta1_lower = quantile(beta_post[2,], 0.025),
+    beta1_upper = quantile(beta_post[2,], 0.975),
     
     # hyperparameters
-    sigma2_mean = mean(sigma_2_post), sigma2_sd = sd(sigma_2_post),
-    tau2_mean = mean(tau_2_post), tau2_sd = sd(tau_2_post),
-    alpha_mean = mean(alpha_post), alpha_sd = sd(alpha_post)
+    sigma2_mean = mean(sigma_2_post), 
+    sigma2_sd = sd(sigma_2_post),
+    sigma2_lower = quantile(sigma_2_post, 0.025),
+    sigma2_upper = quantile(sigma_2_post, 0.975),
     
+    tau2_mean = mean(tau_2_post), 
+    tau2_sd = sd(tau_2_post),
+    tau2_lower = quantile(tau_2_post, 0.025),
+    tau2_upper = quantile(tau_2_post, 0.975),
+    
+    alpha_mean = mean(alpha_post), 
+    alpha_sd = sd(alpha_post),
+    alpha_lower = quantile(alpha_post, 0.025),
+    alpha_upper = quantile(alpha_post, 0.975)
   ))
 }
 
@@ -736,15 +760,15 @@ for (i in 1:n_sims){
 # 95% Confidence Intervals for Estimates ----------------------------------------
 
 #Beta 
-n_sims_df$beta0_lower <- n_sims_df$beta0_mean - 1.96*n_sims_df$beta0_sd
-n_sims_df$beta0_upper <- n_sims_df$beta0_mean + 1.96*n_sims_df$beta0_sd
-n_sims_df$covered_beta0 <- (n_sims_df$beta0_lower <= 1 &
-                              n_sims_df$beta0_upper >= 1)
-
-n_sims_df$beta1_lower <- n_sims_df$beta1_mean - 1.96*n_sims_df$beta1_sd
-n_sims_df$beta1_upper <- n_sims_df$beta1_mean + 1.96*n_sims_df$beta1_sd
-n_sims_df$covered_beta1 <- (n_sims_df$beta1_lower <= 3 &
-                              n_sims_df$beta1_upper >= 3)
+# n_sims_df$beta0_lower <- n_sims_df$beta0_mean - 1.96*n_sims_df$beta0_sd
+# n_sims_df$beta0_upper <- n_sims_df$beta0_mean + 1.96*n_sims_df$beta0_sd
+# n_sims_df$covered_beta0 <- (n_sims_df$beta0_lower <= 1 &
+#                               n_sims_df$beta0_upper >= 1)
+# 
+# n_sims_df$beta1_lower <- n_sims_df$beta1_mean - 1.96*n_sims_df$beta1_sd
+# n_sims_df$beta1_upper <- n_sims_df$beta1_mean + 1.96*n_sims_df$beta1_sd
+# n_sims_df$covered_beta1 <- (n_sims_df$beta1_lower <= 3 &
+#                               n_sims_df$beta1_upper >= 3)
 
 beta0_covered <- mean(n_sims_df$beta0_lower <= 1 &
                         n_sims_df$beta0_upper >= 1)
