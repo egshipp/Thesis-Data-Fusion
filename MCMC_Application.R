@@ -364,9 +364,11 @@ iters <- 10000
 burnin <- 3000
 
 # Run driver -----------------------------------------------------------------------
-sim <- driver(parameters, priors, data, iters)
+# sim <- driver(parameters, priors, data, iters)
 
-save(sim, file = "application_sim_res20.RData")
+# save(sim, file = "application_sim_res20.RData")
+
+load("application_sim_res20.RData")
 
 beta_post <- sim$beta[, (burnin+1):iters]
 alpha_post <- sim$alpha[,(burnin+1):iters]
@@ -481,3 +483,172 @@ plot(sim$sigma_2[1,], type = "l", main = "sigma_2 trace plot")
 plot(sim$tau_2[1,], type = "l", main = "tau_2 trace plot")
 plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
 
+# Only Source 1 Sim -------------------------------------------------------------
+
+data_1 <- list(X_grid = X_grid, 
+             X_1 = X_1, 
+             X_2 = 0,
+             cell_area  = (diff(win$xrange) / grid_res) * (diff(win$yrange) / grid_res),
+             nn_index_1 = nn_X_1$which,
+             nn_index_2 = nn_X_2$which,
+             win = win, 
+             grid_res = 20, 
+             cell_size = cell_size, 
+             x_seq = x_seq, 
+             y_seq = y_seq, 
+             coords = as.matrix(expand.grid(x_seq, y_seq)),
+             dists = as.matrix(dist(coords)))
+
+sim_source1 <- driver(parameters, priors, data_1, iters)
+
+save(sim_source1, file = "application_sim_source1.RData")
+
+beta1_post <- sim_source1$beta[, (burnin+1):iters]
+alpha1_post <- sim_source1$alpha[,(burnin+1):iters]
+sigma1_2_post <- sim_source1$sigma_2[,(burnin+1):iters]
+tau1_2_post <- sim_source1$tau_2[,(burnin+1):iters]
+g1_post <- sim_source1$g[,(burnin+1):iters]
+g1_post_water <- g1_post[grid_water$id,]
+z1_post <- sim_source1$z[,(burnin+1):iters]
+z1_post_water <- z1_post[grid_water$id,]
+
+mean(beta1_post)
+sd(beta1_post)
+
+mean(sigma1_2_post)
+sd(sigma1_2_post)
+
+mean(tau1_2_post)
+sd(tau1_2_post)
+
+mean(alpha1_post)
+sd(alpha1_post)
+
+mean(g1_post_water)
+sd(g1_post_water)
+
+mean(z1_post_water)
+sd(z1_post_water)
+
+posterior1_lambda <- matrix(NA, nrow = nrow(grid_coords), ncol = (iters - burnin))
+
+for (m in 1:(iters - burnin)) {
+  beta1_m <- beta1_post[m]
+  log_lambda1_m <- beta1_m + z1_post[, m] + g1_post[, m]
+  posterior1_lambda[, m] <- exp(log_lambda1_m)
+}
+
+# Posterior mean intensity
+lambda1_mean <- rowMeans(posterior1_lambda)
+
+lambda1_mean[grid_land$id] <- 1e-3
+
+# Reshape to spatial grid
+lambda1_mean_mat <- matrix(lambda1_mean,
+                          nrow = length(x_seq),
+                          ncol = length(y_seq),
+                          byrow = TRUE)
+
+# Plot posterior mean intensity (on log scale)
+par(mfrow = c(1,2))
+image.plot(x_seq, y_seq, log(t(lambda1_mean_mat)),
+           main = "Posterior Mean Intensity Only Source 1(log scale)",
+           xlab = "x", ylab = "y",
+           col = terrain.colors(100), 
+           xlim = x_bound, ylim = y_bound)
+map("state", "massachusetts", add = TRUE)
+image.plot(x_seq, y_seq, log(t(lambda_mean_mat)),
+           main = "Posterior Mean Intensity Only Source 1(log scale)",
+           xlab = "x", ylab = "y",
+           col = terrain.colors(100), 
+           xlim = x_bound, ylim = y_bound)
+map("state", "massachusetts", add = TRUE)
+par(mfrow = c(1,1))
+
+# Only Source 2 Sim ---------------------------------------------------------------
+
+data_2 <- list(X_grid = X_grid, 
+               X_1 = 0, 
+               X_2 = X_2,
+               cell_area  = (diff(win$xrange) / grid_res) * (diff(win$yrange) / grid_res),
+               nn_index_1 = nn_X_1$which,
+               nn_index_2 = nn_X_2$which,
+               win = win, 
+               grid_res = 20, 
+               cell_size = cell_size, 
+               x_seq = x_seq, 
+               y_seq = y_seq, 
+               coords = as.matrix(expand.grid(x_seq, y_seq)),
+               dists = as.matrix(dist(coords)))
+
+sim_source2 <- driver(parameters, priors, data_2, iters)
+
+save(sim_source2, file = "application_sim_source2.RData")
+
+beta2_post <- sim_source2$beta[, (burnin+1):iters]
+alpha2_post <- sim_source2$alpha[,(burnin+1):iters]
+sigma2_2_post <- sim_source2$sigma_2[,(burnin+1):iters]
+tau1_2_post <- sim_source2$tau_2[,(burnin+1):iters]
+g2_post <- sim_source2$g[,(burnin+1):iters]
+g2_post_water <- g2_post[grid_water$id,]
+z2_post <- sim$z2[,(burnin+1):iters]
+z2_post_water <- z2_post[grid_water$id,]
+
+mean(beta1_post)
+sd(beta1_post)
+
+mean(sigma1_2_post)
+sd(sigma1_2_post)
+
+mean(tau1_2_post)
+sd(tau1_2_post)
+
+mean(alpha1_post)
+sd(alpha1_post)
+
+mean(g1_post_water)
+sd(g1_post_water)
+
+mean(z1_post_water)
+sd(z1_post_water)
+
+posterior1_lambda <- matrix(NA, nrow = nrow(grid_coords), ncol = (iters - burnin))
+
+for (m in 1:(iters - burnin)) {
+  beta1_m <- beta1_post[m]
+  log_lambda1_m <- beta1_m + z1_post[, m] + g1_post[, m]
+  posterior1_lambda[, m] <- exp(log_lambda1_m)
+}
+
+# Posterior mean intensity
+lambda1_mean <- rowMeans(posterior1_lambda)
+
+lambda1_mean[grid_land$id] <- 1e-3
+
+# Reshape to spatial grid
+lambda1_mean_mat <- matrix(lambda1_mean,
+                           nrow = length(x_seq),
+                           ncol = length(y_seq),
+                           byrow = TRUE)
+
+# Plot posterior mean intensity (on log scale)
+par(mfrow = c(2,2))
+image.plot(x_seq, y_seq, log(t(lambda1_mean_mat)),
+           main = "Posterior Mean Intensity Only Source 1(log scale)",
+           xlab = "x", ylab = "y",
+           col = terrain.colors(100), 
+           xlim = x_bound, ylim = y_bound)
+image.plot(x_seq, y_seq, log(t(lambda_mean_mat)),
+           main = "Posterior Mean Intensity Only Source 1(log scale)",
+           xlab = "x", ylab = "y",
+           col = terrain.colors(100), 
+           xlim = x_bound, ylim = y_bound)
+map("state", "massachusetts", add = TRUE)
+plot(auto_water_xy$X, auto_water_xy$Y, main = "Automated Locations", 
+     xlim = x_bound, ylim = y_bound)
+map("state", "massachusetts", add = TRUE)
+plot(manual_water_xy$X, manual_water_xy$Y, main = "Manual Locations", 
+     xlim = x_bound, ylim = y_bound)
+map("state", "massachusetts", add = TRUE)
+
+par(mfrow = c(1,1))
