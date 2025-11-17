@@ -10,7 +10,6 @@ library(sf)
 mass_map <- maps::map("state", "massachusetts", plot = FALSE, fill = TRUE)
 
 mass_poly <- sf::st_as_sf(mass_map) |> 
-  sf::st_cast("POLYGON") |>
   st_transform(4326) 
 
 # Data ---------------------------------------------------------------------------
@@ -22,17 +21,9 @@ auto_loc_mat <- as.data.frame(automated_locations)
   
 manual_loc_mat <- as.data.frame(manual_locations) # Over entire window
   colnames(manual_loc_mat) = c("x","y")
-  
-# x_mid <- mean(range(manual_loc_mat$x))
-# y_mid <- mean(range(manual_loc_mat$y))
-# manual_loc_trimmed <- manual_loc_mat[
-#   (
-#     manual_loc_mat$x >= x_mid & manual_loc_mat$y < y_mid | manual_loc_mat$x<= x_mid & manual_loc_mat$y > y_mid
-#   ),
-# ]
 
-x_all <- range(c(auto_loc_mat$x, manual_loc_mat$x, manual_loc_trimmed$x))
-y_all <- range(c(auto_loc_mat$y, manual_loc_mat$y, manual_loc_trimmed$y))
+x_all <- range(c(auto_loc_mat$x, manual_loc_mat$x))
+y_all <- range(c(auto_loc_mat$y, manual_loc_mat$y))
 
 par(mfrow = c(2,2))  
 plot(auto_loc_mat$x, auto_loc_mat$y, main = "Automated Locations", 
@@ -41,9 +32,6 @@ plot(auto_loc_mat$x, auto_loc_mat$y, main = "Automated Locations",
 plot(manual_loc_mat$x, manual_loc_mat$y, main = "Manual Locations", 
      xlim = x_all, ylim = y_all)
   map("state", "massachusetts", add = TRUE)
-# plot(manual_loc_trimmed$x, manual_loc_trimmed$y, main = "Trimmed Manual Locations", , 
-#      xlim = x_all, ylim = y_all)
-#   map("state", "massachusetts", add = TRUE)
 par(mfrow = c(1,1))
 
 # Creating Window ---------------------------------------------------------------
@@ -55,8 +43,7 @@ win <- owin(
   yrange = y_bound
 )
 
-
-grid_res <- 10
+grid_res <- 20
 
 cell_size <- diff(win$xrange) / grid_res
 
@@ -80,45 +67,48 @@ plot(grid_ppp, xlim = x_bound, ylim = y_bound, axes = TRUE)
 auto_sf <- st_as_sf(auto_loc_mat, coords = c("x", "y"), crs = 4326)
 manual_sf <- st_as_sf(manual_loc_mat, coords = c("x", "y"), crs = 4326)
 grid_sf <- st_as_sf(grid_coords, coords = c("x", "y"), crs = 4326)
+  grid_sf$id <- seq_len(nrow(grid_sf))
 
-auto_on_land <- st_intersects(auto_sf, mass_poly, sparse = FALSE)
+auto_water <- auto_sf |>
+  st_filter(mass_poly, .predicate = st_disjoint)
+auto_water_xy <- as.data.frame(st_coordinates(auto_water))
 
-auto_water <- auto_sf[!auto_on_land, ]
+manual_water <- manual_sf |>
+  st_filter(mass_poly, .predicate = st_disjoint)
+manual_water_xy <- as.data.frame(st_coordinates(manual_water))
 
-manual_on_land <- st_intersects(manual_sf, mass_poly, sparse = FALSE)
-manual_water <- manual_sf[!manual_on_land, ]
+grid_water <- grid_sf |>
+  st_filter(mass_poly, .predicate = st_disjoint)
+grid_water_xy <- as.data.frame(st_coordinates(grid_water))
 
-grid_on_land <- st_intersects(grid_sf, mass_poly, sparse = FALSE)
-grid_water <- grid_sf[!grid_on_land, ]
-
-
+grid_land <- grid_sf |> st_filter(mass_poly, .predicate = st_intersects)
+grid_land_xy <- as.data.frame(st_coordinates(grid_land))
+                               
 par(mfrow = c(2,2))  
-plot(auto_loc_mat$x, auto_loc_mat$y, main = "Automated Locations", 
+plot(auto_water_xy$X, auto_water_xy$Y, main = "Automated Locations", 
      xlim = x_all, ylim = y_all)
 map("state", "massachusetts", add = TRUE)
-plot(manual_loc_mat$x, manual_loc_mat$y, main = "Manual Locations", 
+plot(manual_water_xy$X, manual_water_xy$Y, main = "Manual Locations", 
      xlim = x_all, ylim = y_all)
 map("state", "massachusetts", add = TRUE)
-
+plot(grid_water_xy$X, grid_water_xy$Y, main = "Grid Locations", 
+     xlim = x_all, ylim = y_all)
+map("state", "massachusetts", add = TRUE)
 par(mfrow = c(1,1))
 
 # Dataframe creation for MCMC ---------------------------------------------------
 
 ## Grid
-X_grid <- as.data.frame(coords)
+X_grid <- as.data.frame(grid_water_xy)
   colnames(X_grid) <- c("x", "y")
   
-## Source 1 (Manual Locations - Trimmed)
-# X_1 <- manual_loc_trimmed
-# nn_X_1 <- nncross(manual_loc_trimmed, grid_ppp)
-  
-X_1 <- manual_loc_mat
-nn_X_1 <- nncross(manual_loc_mat, grid_ppp)
+X_1 <- manual_water_xy
+nn_X_1 <- nncross(manual_water_xy, grid_ppp)
 
 ## Source 2 (Automated Locations)
 
-X_2 <- auto_loc_mat
-nn_X_2 <- nncross(auto_loc_mat, grid_ppp)
+X_2 <- auto_water_xy
+nn_X_2 <- nncross(auto_water_xy, grid_ppp)
 
 par(mfrow = c(2,2))
 plot(X_grid$x, X_grid$y, xlim = x_bound, ylim = y_bound, main = "Grid")
@@ -177,7 +167,7 @@ update_betas<- function(parameters, priors, data){
 update_g <- function(parameters, priors, data){
   
   # Choosing ellipse (nu) from prior (g)
-  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$g)), Sigma = parameters$tau_2 * exp(-data$dists/0.05)))
+  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$g)), Sigma = parameters$tau_2 * exp(-data$dists/0.1)))
   
   # Log likelihood threshold (finding log(y))
   
@@ -216,7 +206,7 @@ update_g <- function(parameters, priors, data){
 update_z <- function(parameters, priors, data){
   
   # Choosing ellipse (nu) from prior (g)
-  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$z)), Sigma = parameters$sigma_2 * exp(-data$dists/0.075)))
+  nu <- as.vector(MASS::mvrnorm(n = 1, mu = rep(0, length(parameters$z)), Sigma = parameters$sigma_2 * exp(-data$dists/0.1)))
   
   # Log likelihood threshold (finding log(y))
   
@@ -343,7 +333,7 @@ data <- list(X_grid = X_grid,
              nn_index_1 = nn_X_1$which,
              nn_index_2 = nn_X_2$which,
              win = win, 
-             grid_res = 10, 
+             grid_res = 20, 
              cell_size = cell_size, 
              x_seq = x_seq, 
              y_seq = y_seq, 
@@ -376,12 +366,16 @@ burnin <- 3000
 # Run driver -----------------------------------------------------------------------
 sim <- driver(parameters, priors, data, iters)
 
+save(sim, file = "application_sim_res20.RData")
+
 beta_post <- sim$beta[, (burnin+1):iters]
 alpha_post <- sim$alpha[,(burnin+1):iters]
 sigma_2_post <- sim$sigma_2[,(burnin+1):iters]
 tau_2_post <- sim$tau_2[,(burnin+1):iters]
 g_post <- sim$g[,(burnin+1):iters]
+g_post_water <- g_post[grid_water$id,]
 z_post <- sim$z[,(burnin+1):iters]
+z_post_water <- z_post[grid_water$id,]
 
 mean(beta_post)
 sd(beta_post)
@@ -395,25 +389,27 @@ sd(tau_2_post)
 mean(alpha_post)
 sd(alpha_post)
 
-mean(g_post)
-sd(g_post)
+mean(g_post_water)
+sd(g_post_water)
 
-mean(z_post)
-sd(z_post)
+mean(z_post_water)
+sd(z_post_water)
 
 
 # Posterior Plots ----------------------------------------------------------------
 # Posterior intensity matrix
-posterior_lambda <- matrix(NA, nrow = nrow(X_grid), ncol = (iters - burnin))
+posterior_lambda <- matrix(NA, nrow = nrow(grid_coords), ncol = (iters - burnin))
 
 for (m in 1:(iters - burnin)) {
-  beta_m <- beta_post[m]  # intercept
-  log_lambda_m <- beta_m + z_post[, m]
+  beta_m <- beta_post[m]
+  log_lambda_m <- beta_m + z_post[, m] + g_post[, m]
   posterior_lambda[, m] <- exp(log_lambda_m)
 }
 
 # Posterior mean intensity
-lambda_mean <- rowMeans(posterior_lambda, na.rm = TRUE)
+lambda_mean <- rowMeans(posterior_lambda)
+
+lambda_mean[grid_land$id] <- 1e-3
 
 # Reshape to spatial grid
 lambda_mean_mat <- matrix(lambda_mean,
@@ -423,18 +419,57 @@ lambda_mean_mat <- matrix(lambda_mean,
 
 # Plot posterior mean intensity (on log scale)
 par(mfrow = c(2,2))
-image.plot(x_seq, y_seq, log(lambda_mean_mat),
+image.plot(x_seq, y_seq, log(t(lambda_mean_mat)),
            main = "Posterior Mean Intensity (log scale)",
            xlab = "x", ylab = "y",
            col = terrain.colors(100), 
-           xlim = x_all, ylim = y_all)
+           xlim = x_bound, ylim = y_bound)
   map("state", "massachusetts", add = TRUE)
-plot(auto_loc_mat$x, auto_loc_mat$y, main = "Automated Locations", 
-     xlim = x_all, ylim = y_all)
-plot(manual_loc_mat$x, manual_loc_mat$y, main = "Manual Locations", 
-     xlim = x_all, ylim = y_all)
-# plot(manual_loc_trimmed$x, manual_loc_trimmed$y, main = "Trimmed Manual Locations", 
-#      xlim = x_all, ylim = y_all)
+plot(auto_water_xy$X, auto_water_xy$Y, main = "Automated Locations", 
+     xlim = x_bound, ylim = y_bound)
+  map("state", "massachusetts", add = TRUE)
+plot(manual_water_xy$X, manual_water_xy$Y, main = "Manual Locations", 
+     xlim = x_bound, ylim = y_bound)
+  map("state", "massachusetts", add = TRUE)
+
+par(mfrow = c(1,1))
+
+# Posterior g map ---------------------------------------------------------------
+posterior_g <- matrix(NA, nrow = nrow(grid_coords), ncol = (iters - burnin))
+
+for (m in 1:(iters - burnin)) {
+  log_g_m <-  g_post[, m]
+  posterior_g[, m] <- exp(log_g_m)
+}
+
+# Posterior mean intensity
+g_mean <- rowMeans(posterior_g)
+
+g_mean[grid_land$id] <- 1e-3
+
+# Reshape to spatial grid
+g_mean_mat <- matrix(g_mean,
+                          nrow = length(x_seq),
+                          ncol = length(y_seq),
+                          byrow = TRUE)
+zmin <- min(c(log(g_mean_mat), log(lambda_mean_mat), na.rm = TRUE))
+zmax <- max(c(log(g_mean_mat), log(lambda_mean_mat), na.rm = TRUE))
+
+# Plot posterior mean intensity (on log scale)
+par(mfrow = c(2,2))
+image.plot(x_seq, y_seq, log(t(g_mean_mat)),
+           main = "Posterior g intensity (linking function)",
+           xlab = "x", ylab = "y",
+           col = terrain.colors(100), 
+           zlim = c(zmin, zmax),
+           xlim = x_bound, ylim = y_bound)
+
+image.plot(x_seq, y_seq, log(t(lambda_mean_mat)),
+           main = "Posterior Mean Intensity",
+           xlab = "x", ylab = "y",
+           col = terrain.colors(100), 
+           zlim = c(zmin, zmax),
+           xlim = x_bound, ylim = y_bound)
 par(mfrow = c(1,1))
 
 # Trace Plots -------------------------------------------------------------------
@@ -446,21 +481,3 @@ plot(sim$sigma_2[1,], type = "l", main = "sigma_2 trace plot")
 plot(sim$tau_2[1,], type = "l", main = "tau_2 trace plot")
 plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
 
-lambda_mean_mat_im <- im(lambda_mean_mat,  xcol = x_seq, 
-                         yrow = y_seq)
-
-post_pp <- rpoispp(lambda_mean_mat_im)
-
-par(mfrow = c(2,2)) 
-plot(post_pp, main = "Posterior Generated Point Process", xlim = x_all, ylim = y_all, axes = TRUE)
-  map("state", "massachusetts", add = TRUE)
-plot(auto_loc_mat$x, auto_loc_mat$y, main = "Automated Locations", 
-     xlim = x_all, ylim = y_all)
-  map("state", "massachusetts", add = TRUE)
-plot(manual_loc_mat$x, manual_loc_mat$y, main = "Manual Locations", 
-     xlim = x_all, ylim = y_all)
-  map("state", "massachusetts", add = TRUE)
-plot(manual_loc_trimmed$x, manual_loc_trimmed$y, main = "Trimmed Manual Locations", , 
-     xlim = x_all, ylim = y_all)
-  map("state", "massachusetts", add = TRUE)
-par(mfrow = c(1,1))
