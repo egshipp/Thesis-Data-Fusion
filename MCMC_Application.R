@@ -452,16 +452,18 @@ g_mean_mat <- matrix(g_mean,
                           nrow = length(x_seq),
                           ncol = length(y_seq),
                           byrow = TRUE)
-zmin <- min(c(log(g_mean_mat), log(lambda_mean_mat), na.rm = TRUE))
-zmax <- max(c(log(g_mean_mat), log(lambda_mean_mat), na.rm = TRUE))
+gmin <- min(c(log(g_mean_mat), na.rm = TRUE))
+gmax <- max(c(log(g_mean_mat), na.rm = TRUE))
 
+zmin <- min( log(lambda_mean_mat), na.rm = TRUE)
+zmax <- max( log(lambda_mean_mat), na.rm = TRUE)
 # Plot posterior mean intensity (on log scale)
 par(mfrow = c(2,2))
 image.plot(x_seq, y_seq, log(t(g_mean_mat)),
            main = "Posterior g intensity (linking function)",
            xlab = "x", ylab = "y",
            col = terrain.colors(100), 
-           zlim = c(zmin, zmax),
+           zlim = c(gmin, gmax),
            xlim = x_bound, ylim = y_bound)
 
 image.plot(x_seq, y_seq, log(t(lambda_mean_mat)),
@@ -497,9 +499,9 @@ data_1 <- list(X_grid = X_grid,
              coords = as.matrix(expand.grid(x_seq, y_seq)),
              dists = as.matrix(dist(coords)))
 
-sim_source1 <- driver(parameters, priors, data_1, iters)
-
-save(sim_source1, file = "application_sim_source1.RData")
+# sim_source1 <- driver(parameters, priors, data_1, iters)
+# 
+# save(sim_source1, file = "application_sim_source1.RData")
 
 load("application_sim_source1.RData")
 
@@ -581,9 +583,10 @@ data_2 <- list(X_grid = X_grid,
                coords = as.matrix(expand.grid(x_seq, y_seq)),
                dists = as.matrix(dist(coords)))
 
-sim_source2 <- driver(parameters, priors, data_2, iters)
-
-save(sim_source2, file = "application_sim_source2.RData")
+# sim_source2 <- driver(parameters, priors, data_2, iters)
+# 
+# save(sim_source2, file = "application_sim_source2.RData")
+load("application_sim_source2.RData")
 
 beta2_post <- sim_source2$beta[, (burnin+1):iters]
 alpha2_post <- sim_source2$alpha[,(burnin+1):iters]
@@ -644,7 +647,7 @@ image.plot(x_seq, y_seq, log(t(lambda2_mean_mat)),
            col = terrain.colors(100), 
            xlim = x_bound, ylim = y_bound)
 image.plot(x_seq, y_seq, log(t(lambda_mean_mat)),
-           main = "Posterior Mean Intensity Only Source 1(log scale)",
+           main = "Posterior Mean Intensity Only(log scale)",
            xlab = "x", ylab = "y",
            col = terrain.colors(100), 
            xlim = x_bound, ylim = y_bound)

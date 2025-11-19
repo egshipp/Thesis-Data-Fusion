@@ -10,8 +10,14 @@ library(coda)
 load("sim_full.RData")
 load("sim_source1.RData")
 load("sim_source2.RData")
-
+load("sim_data.RData")
+load("sim_parameters.RData")
+load("sim_priors.Rdata")
+load("sim_covariate.Rdata")
+burnin <- 3000
+iters <- 10000
 ## Mean, standard deviation, and 95% credible intervals for parameters
+
 # Full sim
 beta_post <- sim$beta[, (burnin+1):iters]
 alpha_post <- sim$alpha[,(burnin+1):iters]
@@ -62,18 +68,6 @@ mean(sigma_2_post1)
 sd(sigma_2_post1)
 quantile(sigma_2_post1, c(.025,0.975))
 
-mean(tau_2_post1)
-sd(tau_2_post1)
-quantile(tau_2_post1, c(.025,0.975))
-
-mean(alpha_post1)
-sd(alpha_post1)
-quantile(alpha_post1, c(.025,0.975))
-
-mean(g_post1)
-sd(g_post1)
-quantile(g_post1, c(.025,0.975))
-
 mean(z_post1)
 sd(z_post1)
 quantile(z_post1, c(.025,0.975))
@@ -96,18 +90,6 @@ mean(sigma_2_post2)
 sd(sigma_2_post2)
 quantile(sigma_2_post2, c(.025,0.975))
 
-mean(tau_2_post2)
-sd(tau_2_post2)
-quantile(tau_2_post2, c(.025,0.975))
-
-mean(alpha_post2)
-sd(alpha_post2)
-quantile(alpha_post2, c(.025,0.975))
-
-mean(g_post2)
-sd(g_post2)
-quantile(g_post2, c(.025,0.975))
-
 mean(z_post2)
 sd(z_post2)
 quantile(z_post2, c(.025,0.975))
@@ -115,7 +97,7 @@ quantile(z_post2, c(.025,0.975))
 ## Posterior Plots
 
 # Posterior lambda for both sources
-posterior_lambda <- matrix(NA, nrow = nrow(X_grid), ncol = (iters-burnin))
+posterior_lambda <- matrix(NA, nrow = 100, ncol = (iters-burnin))
     
     for(m in 1:(iters-burnin)){
       beta_m <- beta_post[,m]
@@ -130,12 +112,12 @@ posterior_lambda <- matrix(NA, nrow = nrow(X_grid), ncol = (iters-burnin))
     
     # Reshape to grid
     lambda_mean_mat <- matrix(lambda_mean, 
-                              nrow = grid_res, 
-                              ncol = grid_res, 
+                              nrow = data$grid_res, 
+                              ncol = data$grid_res, 
                               byrow = FALSE)
     
 # Just source 1 
-posterior_lambda_source1 <- matrix(NA, nrow = nrow(X_grid), ncol = (iters-burnin))
+posterior_lambda_source1 <- matrix(NA, nrow = nrow(data$X_grid), ncol = (iters-burnin))
     
     for(m in 1:(iters-burnin)){
       beta_m1 <- beta_post1[,m]
@@ -150,12 +132,12 @@ posterior_lambda_source1 <- matrix(NA, nrow = nrow(X_grid), ncol = (iters-burnin
     
     # Reshape to grid
     lambda_mean_mat1 <- matrix(lambda_mean1, 
-                               nrow = grid_res, 
-                               ncol = grid_res, 
+                               nrow = data$grid_res, 
+                               ncol = data$grid_res, 
                                byrow = FALSE)
     
 # Just source 2
-posterior_lambda_source2 <- matrix(NA, nrow = nrow(X_grid), ncol = (iters-burnin))
+posterior_lambda_source2 <- matrix(NA, nrow = nrow(data$X_grid), ncol = (iters-burnin))
     
     for(m in 1:(iters-burnin)){
       beta_m2 <- beta_post2[,m]
@@ -170,8 +152,8 @@ posterior_lambda_source2 <- matrix(NA, nrow = nrow(X_grid), ncol = (iters-burnin
     
     # Reshape to grid
     lambda_mean_mat2 <- matrix(lambda_mean2, 
-                               nrow = grid_res, 
-                               ncol = grid_res, 
+                               nrow = data$grid_res, 
+                               ncol = data$grid_res, 
                                byrow = FALSE)
 
 # Plotting
@@ -194,7 +176,7 @@ image.plot(x_seq, y_seq, log(t(lambda_mean_mat2)),
            col = terrain.colors(50))
 
 # Posterior g map ---------------------------------------------------------------
-    posterior_g <- matrix(NA, nrow = nrow(X_grid), ncol = (iters - burnin))
+    posterior_g <- matrix(NA, nrow = nrow(data$X_grid), ncol = (iters - burnin))
     
     for (m in 1:(iters - burnin)) {
       log_g_m <-  g_post[, m]
@@ -256,3 +238,4 @@ covered_tau2
 
 covered_alpha <- mean(n_sims_df$alpha_lower <= -0.2 &
                         n_sims_df$alpha_upper >= -0.2)
+covered_alpha

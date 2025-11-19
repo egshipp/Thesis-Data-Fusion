@@ -33,6 +33,7 @@ S <- 0.2 * exp(-dists/1.5)
 mu <- rep(0, n)
 
 covariate <- as.vector(rcpp_rmvnorm(1,S,mu))
+save(covariate, file = "sim_covariate.Rdata")
 
 cov_field <- matrix(covariate,
                     nrow = grid_res,
@@ -220,12 +221,12 @@ loglike <- function(parameters, data) {
 
   log_lambda_points2 <- parameters$beta[1] + parameters$beta[2] * data$X_2$covariate + parameters$g[data$nn_index_2] + parameters$z[data$nn_index_2]
   term3 <- sum(log_lambda_points2)
-  
+
   log_lambda_grid2 <- parameters$beta[1] + parameters$beta[2] * data$X_grid$covariate + parameters$g + parameters$z
   lambda_grid2 <- exp(log_lambda_grid2)
   term4 <- sum(lambda_grid2 * data$cell_area)
 
-  likelihood <- (term1 - term2) +(term3 - term4)
+  likelihood <- (term1 - term2) + (term3 - term4)
   return(likelihood)
 }
 
@@ -252,7 +253,7 @@ update_betas<- function(parameters, priors, data){
   return(parameters)
 }
 
-# Updating g - Source 2 measurement error
+#Updating g - Source 2 measurement error
 update_g <- function(parameters, priors, data){
 
   # Choosing ellipse (nu) from prior (g)
@@ -351,13 +352,13 @@ update_sigma_2 <- function(parameters, priors, data){
 update_tau_2 <- function(parameters, priors, data){
   n <- length(parameters$g)
 
-  alpha_post <- priors$a_0_tau + n/2
-  beta_post  <- priors$b_0_tau  + 0.5 * sum((parameters$g - parameters$alpha)^2)
+alpha_post <- priors$a_0_tau + n/2
+beta_post  <- priors$b_0_tau  + 0.5 * sum((parameters$g - parameters$alpha)^2)
 
-  # Draw samples from Inverse-Gamma
-  parameters$tau_2 <- 1 / rgamma(1, shape = alpha_post, rate = beta_post)
+# Draw samples from Inverse-Gamma
+parameters$tau_2 <- 1 / rgamma(1, shape = alpha_post, rate = beta_post)
 
-  return(parameters)
+return(parameters)
 
 }
 
@@ -413,12 +414,11 @@ driver <- function(parameters, priors, data, iters){
   return(out)
 }
 
-# Running Simulation --------------------------------------------------------------------
-
+# Running Simulation -----------------------------------------------------------------
 
 data <- list(X_grid = X_grid,
-             X_1 = 0,
-             X_2 = X_2,
+             X_1 = X_1,
+             X_2 = 0,
              cell_area  = (diff(win$xrange) / grid_res) * (diff(win$yrange) / grid_res),
              nn_index_1 = nn_X_1$which,
              nn_index_2 = nn_X_2$which,
@@ -448,11 +448,15 @@ priors <- list(beta_mean = c(0,0),
                phi = 10
 )
 
+save(data, file = "sim_data.RData")
+save(parameters, file = "sim_parameters.RData")
+save(priors, file = "sim_priors.Rdata")
+
 iters <- 10000
 
 burnin <- 3000
 
-sim_source2 <- driver(parameters, priors, data, iters) # took 20 min to run with res = 20
+sim_source1 <- driver(parameters, priors, data, iters) # took 20 min to run with res = 20
 
 save(sim_source2, file = "sim_source2.RData")
 
