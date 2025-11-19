@@ -366,8 +366,6 @@ burnin <- 3000
 # Run driver -----------------------------------------------------------------------
 # sim <- driver(parameters, priors, data, iters)
 
-# save(sim, file = "application_sim_res20.RData")
-
 load("application_sim_res20.RData")
 
 beta_post <- sim$beta[, (burnin+1):iters]
@@ -503,6 +501,8 @@ sim_source1 <- driver(parameters, priors, data_1, iters)
 
 save(sim_source1, file = "application_sim_source1.RData")
 
+load("application_sim_source1.RData")
+
 beta1_post <- sim_source1$beta[, (burnin+1):iters]
 alpha1_post <- sim_source1$alpha[,(burnin+1):iters]
 sigma1_2_post <- sim_source1$sigma_2[,(burnin+1):iters]
@@ -588,45 +588,45 @@ save(sim_source2, file = "application_sim_source2.RData")
 beta2_post <- sim_source2$beta[, (burnin+1):iters]
 alpha2_post <- sim_source2$alpha[,(burnin+1):iters]
 sigma2_2_post <- sim_source2$sigma_2[,(burnin+1):iters]
-tau1_2_post <- sim_source2$tau_2[,(burnin+1):iters]
+tau2_2_post <- sim_source2$tau_2[,(burnin+1):iters]
 g2_post <- sim_source2$g[,(burnin+1):iters]
 g2_post_water <- g2_post[grid_water$id,]
-z2_post <- sim$z2[,(burnin+1):iters]
+z2_post <- sim_source2$z[,(burnin+1):iters]
 z2_post_water <- z2_post[grid_water$id,]
 
-mean(beta1_post)
-sd(beta1_post)
+mean(beta2_post)
+sd(beta2_post)
 
-mean(sigma1_2_post)
-sd(sigma1_2_post)
+mean(sigma2_2_post)
+sd(sigma2_2_post)
 
-mean(tau1_2_post)
-sd(tau1_2_post)
+mean(tau2_2_post)
+sd(tau2_2_post)
 
-mean(alpha1_post)
-sd(alpha1_post)
+mean(alpha2_post)
+sd(alpha2_post)
 
-mean(g1_post_water)
-sd(g1_post_water)
+mean(g2_post_water)
+sd(g2_post_water)
 
-mean(z1_post_water)
-sd(z1_post_water)
+mean(z2_post_water)
+sd(z2_post_water)
 
-posterior1_lambda <- matrix(NA, nrow = nrow(grid_coords), ncol = (iters - burnin))
+posterior2_lambda <- matrix(NA, nrow = nrow(grid_coords), ncol = (iters - burnin))
 
 for (m in 1:(iters - burnin)) {
-  beta1_m <- beta1_post[m]
-  log_lambda1_m <- beta1_m + z1_post[, m] + g1_post[, m]
-  posterior1_lambda[, m] <- exp(log_lambda1_m)
+  beta2_m <- beta2_post[m]
+  log_lambda2_m <- beta2_m + z2_post[, m] + g2_post[, m]
+  posterior2_lambda[, m] <- exp(log_lambda2_m)
 }
 
 # Posterior mean intensity
-lambda1_mean <- rowMeans(posterior1_lambda)
+lambda2_mean <- rowMeans(posterior2_lambda)
 
-lambda1_mean[grid_land$id] <- 1e-3
+lambda2_mean[grid_land$id] <- 1e-3
 
 # Reshape to spatial grid
-lambda1_mean_mat <- matrix(lambda1_mean,
+lambda2_mean_mat <- matrix(lambda2_mean,
                            nrow = length(x_seq),
                            ncol = length(y_seq),
                            byrow = TRUE)
@@ -638,17 +638,17 @@ image.plot(x_seq, y_seq, log(t(lambda1_mean_mat)),
            xlab = "x", ylab = "y",
            col = terrain.colors(100), 
            xlim = x_bound, ylim = y_bound)
+image.plot(x_seq, y_seq, log(t(lambda2_mean_mat)),
+           main = "Posterior Mean Intensity Only Source 2(log scale)",
+           xlab = "x", ylab = "y",
+           col = terrain.colors(100), 
+           xlim = x_bound, ylim = y_bound)
 image.plot(x_seq, y_seq, log(t(lambda_mean_mat)),
            main = "Posterior Mean Intensity Only Source 1(log scale)",
            xlab = "x", ylab = "y",
            col = terrain.colors(100), 
            xlim = x_bound, ylim = y_bound)
 map("state", "massachusetts", add = TRUE)
-plot(auto_water_xy$X, auto_water_xy$Y, main = "Automated Locations", 
-     xlim = x_bound, ylim = y_bound)
-map("state", "massachusetts", add = TRUE)
-plot(manual_water_xy$X, manual_water_xy$Y, main = "Manual Locations", 
-     xlim = x_bound, ylim = y_bound)
-map("state", "massachusetts", add = TRUE)
+
 
 par(mfrow = c(1,1))

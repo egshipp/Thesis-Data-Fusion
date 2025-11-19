@@ -86,7 +86,6 @@ par(mfrow = c(1,1))
 
 # Source 1  --------------------------------------------------------------------
 
-set.seed(111)
 nrow <- length(lgcp_discretize$yrow)
 ncol <- length(lgcp_discretize$xcol)
 
@@ -151,12 +150,16 @@ plot(lgcp_sim)
 plot(lgcp_2)
 par(mfrow=(c(1,1)))
 
+png("sim_point_patterns.png", width = 1800, height = 600, res = 150)
+
 par(mfrow = (c(1,3)))
-plot(lgcp_sim)
-plot(win, main ="lgcp_1")
+plot(lgcp_sim, main = "Point Pattern (True Point Pattern)")
+plot(win, main ="Point Pattern (Source 1)")
 points(lgcp_1)
-plot(lgcp_2)
+plot(lgcp_2, main = "Point Pattern (Source 2)")
 par(mfrow=(c(1,1)))
+
+dev.off()
 
 # Data frame creation ----------------------------------------------------------
 
@@ -200,7 +203,6 @@ par(mfrow = (c(1,1)))
 
 quilt.plot(X_grid$x, X_grid$y, X_grid$covariate)
 
-
 # MCMC --------------------------------------------------------------------------
 
 ## log likelihood function
@@ -218,12 +220,12 @@ loglike <- function(parameters, data) {
 
   log_lambda_points2 <- parameters$beta[1] + parameters$beta[2] * data$X_2$covariate + parameters$g[data$nn_index_2] + parameters$z[data$nn_index_2]
   term3 <- sum(log_lambda_points2)
-
+  
   log_lambda_grid2 <- parameters$beta[1] + parameters$beta[2] * data$X_grid$covariate + parameters$g + parameters$z
   lambda_grid2 <- exp(log_lambda_grid2)
   term4 <- sum(lambda_grid2 * data$cell_area)
 
-  likelihood <- (term1 - term2) + (term3 - term4)
+  likelihood <- (term1 - term2) +(term3 - term4)
   return(likelihood)
 }
 
@@ -411,12 +413,11 @@ driver <- function(parameters, priors, data, iters){
   return(out)
 }
 
-
-# Attempting --------------------------------------------------------------------
+# Running Simulation --------------------------------------------------------------------
 
 
 data <- list(X_grid = X_grid,
-             X_1 = X_1,
+             X_1 = 0,
              X_2 = X_2,
              cell_area  = (diff(win$xrange) / grid_res) * (diff(win$yrange) / grid_res),
              nn_index_1 = nn_X_1$which,
@@ -451,79 +452,9 @@ iters <- 10000
 
 burnin <- 3000
 
-sim <- driver(parameters, priors, data, iters) # took 20 min to run with res = 20
+sim_source2 <- driver(parameters, priors, data, iters) # took 20 min to run with res = 20
 
-beta_post <- sim$beta[, (burnin+1):iters]
-alpha_post <- sim$alpha[,(burnin+1):iters]
-sigma_2_post <- sim$sigma_2[,(burnin+1):iters]
-tau_2_post <- sim$tau_2[,(burnin+1):iters]
-g_post <- sim$g[,(burnin+1):iters]
-z_post <- sim$z[,(burnin+1):iters]
-
-apply(beta_post, 1, mean)
-apply(beta_post, 1, sd)
-quantile(beta_post[1,], c(0.025, 0.975))
-quantile(beta_post[2,], c(0.025, 0.975))
-
-mean(sigma_2_post)
-sd(sigma_2_post)
-quantile(sigma_2_post, c(.025,0.975))
-
-mean(tau_2_post)
-sd(tau_2_post)
-quantile(tau_2_post, c(.025,0.975))
-
-mean(alpha_post)
-sd(alpha_post)
-quantile(alpha_post, c(.025,0.975))
-
-mean(g_post)
-sd(g_post)
-quantile(g_post, c(.025,0.975))
-
-mean(z_post)
-sd(z_post)
-quantile(z_post, c(.025,0.975))
-
-# Posterior Plots ----------------------------------------------------------------
-# Posterior lambda for both sources
-posterior_lambda <- matrix(NA, nrow = nrow(X_grid), ncol = (iters-burnin))
-
-for(m in 1:(iters-burnin)){
-  beta_m <- beta_post[,m]
-  
-  log_lambda_m <- beta_m[1] + beta_m[2]*covariate + z_post[,m]
-  
-  posterior_lambda[, m] <- exp(log_lambda_m)
-}
-
-# Posterior mean intensity
-lambda_mean <- rowMeans(posterior_lambda, na.rm = TRUE)
-
-# Reshape to grid
-lambda_mean_mat <- matrix(lambda_mean, 
-                          nrow = grid_res, 
-                          ncol = grid_res, 
-                          byrow = FALSE)
-
-# Plotting
-par(mfrow = c(2,2))
-
-image(x_seq, y_seq, log(lambda),
-      main = "True Intensity",
-      col = terrain.colors(50))
-
-image.plot(x_seq, y_seq, log(t(lambda_mean_mat)),
-           main = "Posterior Mean",
-           col = terrain.colors(50))
-
-diff_mat <- log(lambda) - log(t(lambda_mean_mat))
-
-image.plot(x_seq, y_seq, diff_mat,
-           main = "Difference between True and Posterior",
-           col = terrain.colors(50))
-
-par(mfrow = c(1,1))
+save(sim_source2, file = "sim_source2.RData")
 
 # Trace Plots -------------------------------------------------------------------
 
@@ -538,7 +469,6 @@ plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
 # Running multiple simulations to show credible intervals ---------------------
 
 n_sims <- 100
-
 n_sims_df <- data.frame()
 
 for (i in 1:n_sims){
@@ -547,7 +477,7 @@ for (i in 1:n_sims){
   #Simulate Covariate
   win <- owin(xrange = c(0, 10), yrange = c(0, 10))
   
-  grid_res <- 10
+  grid_res <- 20
   
   cell_size <- diff(win$xrange) / grid_res
   
@@ -608,7 +538,7 @@ for (i in 1:n_sims){
   
   # Discretize using spatstat
   
-  lgcp_discretize <- pixellate(lgcp_sim, eps = 1)
+  lgcp_discretize <- pixellate(lgcp_sim, eps = 0.5)
   
   # Source 1  -----------
   nrow <- length(lgcp_discretize$yrow)
@@ -685,7 +615,7 @@ for (i in 1:n_sims){
                nn_index_1 = nn_X_1$which,
                nn_index_2 = nn_X_2$which,
                win = win,
-               grid_res = 10,
+               grid_res = 20,
                cell_size = cell_size,
                x_seq = x_seq,
                y_seq = y_seq,
@@ -722,6 +652,8 @@ for (i in 1:n_sims){
   alpha_post <- sim$alpha[, (burnin+1):iters]
   sigma_2_post <- sim$sigma_2[, (burnin+1):iters]
   tau_2_post <- sim$tau_2[, (burnin+1):iters]
+  g_post <- sim$g[,(burnin+1):iters]
+  z_post <- sim$z[,(burnin+1):iters]
   
   # Store just summary stats
    n_sims_df <- rbind(n_sims_df, data.frame(
@@ -752,181 +684,18 @@ for (i in 1:n_sims){
     alpha_mean = mean(alpha_post), 
     alpha_sd = sd(alpha_post),
     alpha_lower = quantile(alpha_post, 0.025),
-    alpha_upper = quantile(alpha_post, 0.975)
+    alpha_upper = quantile(alpha_post, 0.975),
+  
+    g_mean = mean(g_post),
+    g_sd = sd(g_post),
+    g_lower = quantile(g_post, 0.025),
+    g_upper = quantile(g_post, 0.975),
+    
+    z_mean = mean(z_post),
+    z_sd = sd(z_post),
+    z_lower = quantile(z_post, 0.025),
+    z_upper = quantile(z_post, 0.975)
   ))
 }
 
-
-# 95% Confidence Intervals for Estimates ----------------------------------------
-
-#Beta 
-# n_sims_df$beta0_lower <- n_sims_df$beta0_mean - 1.96*n_sims_df$beta0_sd
-# n_sims_df$beta0_upper <- n_sims_df$beta0_mean + 1.96*n_sims_df$beta0_sd
-# n_sims_df$covered_beta0 <- (n_sims_df$beta0_lower <= 1 &
-#                               n_sims_df$beta0_upper >= 1)
-# 
-# n_sims_df$beta1_lower <- n_sims_df$beta1_mean - 1.96*n_sims_df$beta1_sd
-# n_sims_df$beta1_upper <- n_sims_df$beta1_mean + 1.96*n_sims_df$beta1_sd
-# n_sims_df$covered_beta1 <- (n_sims_df$beta1_lower <= 3 &
-#                               n_sims_df$beta1_upper >= 3)
-
-beta0_covered <- mean(n_sims_df$beta0_lower <= 1 &
-                        n_sims_df$beta0_upper >= 1)
-
-beta1_covered <- mean(n_sims_df$beta1_lower <= 3 &
-                        n_sims_df$beta1_upper >= 3)
-beta0_covered
-beta1_covered
-
-#sigma_2
-n_sims_df$sigma2_lower <- n_sims_df$sigma2_mean - 1.96*n_sims_df$sigma2_sd
-n_sims_df$sigma2_upper <- n_sims_df$sigma2_mean + 1.96*n_sims_df$sigma2_sd
-n_sims_df$covered_sigma2 <- (n_sims_df$sigma2_lower <= 0.25 &
-                              n_sims_df$sigma2_upper >=0.25)
-
-covered_sigma2 <- mean(n_sims_df$sigma2_lower <= 0.25 &
-                     n_sims_df$sigma2_upper >=0.25)
-covered_sigma2
-
-#tau_2
-n_sims_df$tau2_lower <- n_sims_df$tau2_mean - 1.96*n_sims_df$tau2_sd
-n_sims_df$tau2_upper <- n_sims_df$tau2_mean + 1.96*n_sims_df$tau2_sd
-n_sims_df$covered_tau2 <- (n_sims_df$tau2_lower <= 0.4 &
-                               n_sims_df$tau2_upper >=0.4)
-
-covered_tau2 <- mean(n_sims_df$tau2_lower <= 0.4 &
-                   n_sims_df$tau2_upper >=0.4)
-covered_tau2
-
-#alpha
-n_sims_df$alpha_lower <- n_sims_df$alpha_mean - 1.96*n_sims_df$alpha_sd
-n_sims_df$alpha_upper <- n_sims_df$alpha_mean + 1.96*n_sims_df$alpha_sd
-n_sims_df$covered_alpha <- (n_sims_df$alpha_lower <= -0.2 &
-                             n_sims_df$alpha_upper >= -0.2)
-
-covered_alpha <- mean(n_sims_df$alpha_lower <= -0.2 &
-                    n_sims_df$alpha_upper >= -0.2)
-covered_alpha
-
-#Confidence Interval Plots -------------------------------------------------------
-pdf("credible_intervals.pdf", width = 8, height = 6)  
-#Betas
-ggplot(n_sims_df, aes(x = sim, y = beta0_mean, 
-                      color = covered_beta0)) +
-  geom_pointrange(aes(ymin = beta0_lower, ymax = beta0_upper),
-                  size = 1.1) +
-  geom_hline(aes(yintercept = 1),
-             linetype = "dashed", color = "black", size = 0.7) +
-  scale_color_manual(values = c("red","green")) +
-  labs(
-    x = "Parameter",
-    y = "Posterior Estimate",
-    title = "95% Credible Intervals for" ~ beta[0],
-    color = "Contains truth?"
-  ) +
-  theme_minimal(base_size = 14) +
-  annotate(
-    "text",
-    x = Inf, y = -Inf,
-    label = paste0("Proportion covered: ", round(beta0_covered, 2)),
-    hjust = 1.1, vjust = -1.5,
-    size = 5
-  ) +
-  coord_cartesian(clip = "off")
-
-ggplot(n_sims_df, aes(x = sim, y = beta1_mean, 
-                      color = covered_beta1)) +
-  geom_pointrange(aes(ymin = beta1_lower, ymax = beta1_upper),
-                  size = 1.1) +
-  geom_hline(aes(yintercept = 3),
-             linetype = "dashed", color = "black", size = 0.7) +
-  scale_color_manual(values = c("red","green")) +
-  labs(
-    x = "Parameter",
-    y = "Posterior Estimate",
-    title = "95% Credible Intervals for" ~ beta[1],
-    color = "Contains truth?"
-  ) +
-  theme_minimal(base_size = 14) +
-  annotate(
-    "text",
-    x = Inf, y = -Inf,
-    label = paste0("Proportion covered: ", round(beta1_covered, 2)),
-    hjust = 1.1, vjust = -1.5,
-    size = 5
-  ) +
-  coord_cartesian(clip = "off")
-
-#Sigma2
-ggplot(n_sims_df, aes(x = sim, y = sigma2_mean, 
-                      color = covered_sigma2)) +
-  geom_pointrange(aes(ymin = sigma2_lower, ymax = sigma2_upper),
-                  size = 1.1) +
-  geom_hline(aes(yintercept = 0.25),
-             linetype = "dashed", color = "black", size = 0.7) +
-  scale_color_manual(values = c("red","green")) +
-  labs(
-    x = "Parameter",
-    y = "Posterior Estimate",
-    title = "95% Credible Intervals for" ~ sigma^2,
-    color = "Contains truth?"
-  ) +
-  theme_minimal(base_size = 14) +
-  annotate(
-    "text",
-    x = Inf, y = -Inf,
-    label = paste0("Proportion covered: ", round(covered_sigma2, 2)),
-    hjust = 1.1, vjust = -1.5,
-    size = 5
-  ) +
-  coord_cartesian(clip = "off")
-
-#Tau2
-ggplot(n_sims_df, aes(x = sim, y = tau2_mean, 
-                      color = covered_tau2)) +
-  geom_pointrange(aes(ymin = tau2_lower, ymax = tau2_upper),
-                  size = 1.1) +
-  geom_hline(aes(yintercept = 0.4),
-             linetype = "dashed", color = "black", size = 0.7) +
-  scale_color_manual(values = c("red","green")) +
-  labs(
-    x = "Parameter",
-    y = "Posterior Estimate",
-    title = "95% Credible Intervals for" ~ tau^2,
-    color = "Contains truth?"
-  ) +
-  theme_minimal(base_size = 14) +
-  annotate(
-    "text",
-    x = Inf, y = -Inf,
-    label = paste0("Proportion covered: ", round(covered_tau2, 2)),
-    hjust = 1.1, vjust = -1.5,
-    size = 5
-  ) +
-  coord_cartesian(clip = "off")
-
-#Alpha
-ggplot(n_sims_df, aes(x = sim, y = alpha_mean, 
-                      color = covered_alpha)) +
-  geom_pointrange(aes(ymin = alpha_lower, ymax = alpha_upper),
-                  size = 1.1) +
-  geom_hline(aes(yintercept = -0.2),
-             linetype = "dashed", color = "black", size = 0.7) +
-  scale_color_manual(values = c("red","green")) +
-  labs(
-    x = "Parameter",
-    y = "Posterior Estimate",
-    title = "95% Credible Intervals for" ~ alpha,
-    color = "Contains truth?"
-  ) +
-  theme_minimal(base_size = 14) +
-  annotate(
-    "text",
-    x = Inf, y = -Inf,
-    label = paste0("Proportion covered: ", round(covered_alpha, 2)),
-    hjust = 1.1, vjust = -1.5,
-    size = 5
-  ) +
-  coord_cartesian(clip = "off")
-
-dev.off()
+save(n_sims_df, file = "n_sims_df.Rdata")
