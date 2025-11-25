@@ -33,7 +33,7 @@ S <- 0.2 * exp(-dists/1.5)
 mu <- rep(0, n)
 
 covariate <- as.vector(rcpp_rmvnorm(1,S,mu))
-save(covariate, file = "sim_covariate.Rdata")
+# save(covariate, file = "sim_covariate.Rdata")
 
 cov_field <- matrix(covariate,
                     nrow = grid_res,
@@ -69,6 +69,7 @@ b_0 <- 1
 b_1 <- 3
 
 lambda <- exp(b_0 + b_1*(cov_field) + z)
+# save(lambda, file = "sim_lambda.RData")
 lambda_im <- im(lambda, xcol = x_seq, yrow = y_seq)
 
 lgcp_sim <- rpoispp(lambda_im)
@@ -151,7 +152,7 @@ plot(lgcp_sim)
 plot(lgcp_2)
 par(mfrow=(c(1,1)))
 
-png("sim_point_patterns.png", width = 1800, height = 600, res = 150)
+# png("sim_point_patterns.png", width = 1800, height = 600, res = 150)
 
 par(mfrow = (c(1,3)))
 plot(lgcp_sim, main = "Point Pattern (True Point Pattern)")
@@ -160,7 +161,7 @@ points(lgcp_1)
 plot(lgcp_2, main = "Point Pattern (Source 2)")
 par(mfrow=(c(1,1)))
 
-dev.off()
+# dev.off()
 
 # Data frame creation ----------------------------------------------------------
 
@@ -190,34 +191,39 @@ X_2 <- as.data.frame(lgcp_2)
 nn_X_2 <- nncross(lgcp_2, cov_field_ppp)
 X_2$covariate <- cov_field_ppp$marks[nn_X_2$which]
 
-
 par(mfrow = (c(1,2)))
-quilt.plot(X_1$x, X_1$y, X_1$covariate)
+quilt.plot(X_1$x, X_1$y, X_1$covariate, 
+           nx = 10,
+           ny = 10)
 plot(lgcp_1)
 par(mfrow = (c(1,1)))
 
 
 par(mfrow = (c(1,2)))
-quilt.plot(X_2$x, X_2$y, X_2$covariate)
+quilt.plot(X_2$x, X_2$y, X_2$covariate, 
+           nx = 10,
+           ny = 10)
 plot(lgcp_2)
 par(mfrow = (c(1,1)))
 
-quilt.plot(X_grid$x, X_grid$y, X_grid$covariate)
+quilt.plot(X_grid$x, X_grid$y, X_grid$covariate,
+           nx = 10,
+           ny = 10)
 
 # MCMC --------------------------------------------------------------------------
 
 ## log likelihood function
 loglike <- function(parameters, data) {
 
-  idx_mask1 <- which(X_grid$mask_source1)
+idx_mask1 <- which(data$X_grid$mask_source1)
 
-  log_lambda_points1 <- parameters$beta[1] + parameters$beta[2] * data$X_1$covariate + parameters$z[data$nn_index_1]
-  term1 <- sum(log_lambda_points1)
+log_lambda_points1 <- parameters$beta[1] + parameters$beta[2] * data$X_1$covariate + parameters$z[data$nn_index_1]
+term1 <- sum(log_lambda_points1)
 
-  log_lambda_grid1_full <- parameters$beta[1] + parameters$beta[2] * data$X_grid$covariate + parameters$z
+log_lambda_grid1_full <- parameters$beta[1] + parameters$beta[2] * data$X_grid$covariate + parameters$z
 
-  lambda_grid1_masked <- exp(log_lambda_grid1_full[idx_mask1])
-  term2 <- sum(lambda_grid1_masked * data$cell_area)
+lambda_grid1_masked <- exp(log_lambda_grid1_full[idx_mask1])
+term2 <- sum(lambda_grid1_masked * data$cell_area)
 
   log_lambda_points2 <- parameters$beta[1] + parameters$beta[2] * data$X_2$covariate + parameters$g[data$nn_index_2] + parameters$z[data$nn_index_2]
   term3 <- sum(log_lambda_points2)
@@ -226,7 +232,7 @@ loglike <- function(parameters, data) {
   lambda_grid2 <- exp(log_lambda_grid2)
   term4 <- sum(lambda_grid2 * data$cell_area)
 
-  likelihood <- (term1 - term2) + (term3 - term4)
+  likelihood <- (term1 - term2) +(term3 - term4)
   return(likelihood)
 }
 
@@ -418,7 +424,7 @@ driver <- function(parameters, priors, data, iters){
 
 data <- list(X_grid = X_grid,
              X_1 = X_1,
-             X_2 = 0,
+             X_2 = X_2,
              cell_area  = (diff(win$xrange) / grid_res) * (diff(win$yrange) / grid_res),
              nn_index_1 = nn_X_1$which,
              nn_index_2 = nn_X_2$which,
@@ -441,24 +447,24 @@ priors <- list(beta_mean = c(0,0),
                beta_sd = c(10,10),
                beta_prop_sd = c(0.075, 0.075),
                z_mean = 0,
-               a_0_sigma = 2,
+               a_0_sigma = 3,
                b_0_sigma = 1,
                a_0_tau = 2,
                b_0_tau = 1,
-               phi = 10
+               phi = 2
 )
 
-save(data, file = "sim_data.RData")
-save(parameters, file = "sim_parameters.RData")
-save(priors, file = "sim_priors.Rdata")
+# save(data, file = "sim_data.RData")
+# save(parameters, file = "sim_parameters.RData")
+# save(priors, file = "sim_priors.Rdata")
 
-iters <- 10000
+iters <- 15000
 
 burnin <- 3000
 
-sim_source1 <- driver(parameters, priors, data, iters) # took 20 min to run with res = 20
+sim <- driver(parameters, priors, data, iters) # took 20 min to run with res = 20
 
-save(sim_source2, file = "sim_source2.RData")
+# save(sim_source2, file = "sim_source2.RData")
 
 # Trace Plots -------------------------------------------------------------------
 
@@ -481,7 +487,7 @@ for (i in 1:n_sims){
   #Simulate Covariate
   win <- owin(xrange = c(0, 10), yrange = c(0, 10))
   
-  grid_res <- 20
+  grid_res <- 10
   
   cell_size <- diff(win$xrange) / grid_res
   
@@ -542,7 +548,7 @@ for (i in 1:n_sims){
   
   # Discretize using spatstat
   
-  lgcp_discretize <- pixellate(lgcp_sim, eps = 0.5)
+  lgcp_discretize <- pixellate(lgcp_sim, eps = 1)
   
   # Source 1  -----------
   nrow <- length(lgcp_discretize$yrow)
@@ -619,7 +625,7 @@ for (i in 1:n_sims){
                nn_index_1 = nn_X_1$which,
                nn_index_2 = nn_X_2$which,
                win = win,
-               grid_res = 20,
+               grid_res = 10,
                cell_size = cell_size,
                x_seq = x_seq,
                y_seq = y_seq,
@@ -637,11 +643,11 @@ for (i in 1:n_sims){
                  beta_sd = c(10,10),
                  beta_prop_sd = c(0.075, 0.075),
                  z_mean = 0,
-                 a_0_sigma = 2,
+                 a_0_sigma = 3,
                  b_0_sigma = 1,
                  a_0_tau = 2,
                  b_0_tau = 1,
-                 phi = 10
+                 phi = 2
   )
   
   iters <- 10000
@@ -658,6 +664,32 @@ for (i in 1:n_sims){
   tau_2_post <- sim$tau_2[, (burnin+1):iters]
   g_post <- sim$g[,(burnin+1):iters]
   z_post <- sim$z[,(burnin+1):iters]
+  
+  # Calculating posterior
+  posterior_lambda <- matrix(NA, nrow = nrow(X_grid), ncol = (iters-burnin))
+  
+  for(m in 1:(iters-burnin)){
+    beta_m <- beta_post[,m]
+    
+    log_lambda_m <- beta_m[1] + beta_m[2]*covariate + z_post[,m]
+    
+    posterior_lambda[, m] <- exp(log_lambda_m)
+  }
+  
+  # Posterior mean intensity
+  lambda_mean <- rowMeans(posterior_lambda, na.rm = TRUE)
+  
+  # Calculating exxpected count
+  n_draws <- ncol(posterior_lambda)
+  expected_total_per_draw_fused <- numeric(n_draws)
+  
+  for (m in 1:n_draws) {
+    expected_total_per_draw_fused[m] <- sum(posterior_lambda[, m] * data$cell_area, na.rm = TRUE)
+  }
+  
+  expected_mean_fused <- mean(expected_total_per_draw_fused)
+  expected_sd_fused   <- sd(expected_total_per_draw_fused)
+  actual_count <- sum(lambda * data$cell_area, na.rm = TRUE)
   
   # Store just summary stats
    n_sims_df <- rbind(n_sims_df, data.frame(
@@ -698,8 +730,13 @@ for (i in 1:n_sims){
     z_mean = mean(z_post),
     z_sd = sd(z_post),
     z_lower = quantile(z_post, 0.025),
-    z_upper = quantile(z_post, 0.975)
+    z_upper = quantile(z_post, 0.975),
+    
+    #expected counts
+    count_lower = quantile(expected_total_per_draw_fused, 0.025),
+    count_upper = quantile(expected_total_per_draw_fused, 0.975),
+    actual_count = actual_count
   ))
 }
 
-save(n_sims_df, file = "n_sims_df.Rdata")
+save(n_sims_df, file = "n_sims_df2.Rdata")

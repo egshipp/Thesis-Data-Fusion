@@ -14,6 +14,22 @@ load("sim_data.RData")
 load("sim_parameters.RData")
 load("sim_priors.Rdata")
 load("sim_covariate.Rdata")
+load("sim_lambda.RData")
+
+win <- owin(xrange = c(0, 10), yrange = c(0, 10))
+
+grid_res <- 10
+
+cell_size <- diff(win$xrange) / grid_res
+
+x_seq <- seq(win$xrange[1] + cell_size/2,
+             win$xrange[2] - cell_size/2,
+             by = cell_size)
+y_seq <- seq(win$yrange[1] + cell_size/2,
+             win$yrange[2] - cell_size/2,
+             by = cell_size)
+grid_coords <- expand.grid(x = y_seq, y = x_seq)
+
 burnin <- 3000
 iters <- 10000
 ## Mean, standard deviation, and 95% credible intervals for parameters
@@ -110,12 +126,6 @@ posterior_lambda <- matrix(NA, nrow = 100, ncol = (iters-burnin))
     # Posterior mean intensity
     lambda_mean <- rowMeans(posterior_lambda, na.rm = TRUE)
     
-    # Reshape to grid
-    lambda_mean_mat <- matrix(lambda_mean, 
-                              nrow = data$grid_res, 
-                              ncol = data$grid_res, 
-                              byrow = FALSE)
-    
 # Just source 1 
 posterior_lambda_source1 <- matrix(NA, nrow = nrow(data$X_grid), ncol = (iters-burnin))
     
@@ -158,55 +168,71 @@ posterior_lambda_source2 <- matrix(NA, nrow = nrow(data$X_grid), ncol = (iters-b
 
 # Plotting
 par(mfrow = c(2,2))
+quilt.plot(grid_coords$x,
+           grid_coords$y,
+           log(lambda), 
+           nx = 10,
+           ny = 10,
+           col = terrain.colors(100),
+           main = "True Intensity")
 
-image(x_seq, y_seq, log(lambda),
-      main = "True Intensity",
-      col = terrain.colors(50))
+quilt.plot(grid_coords$y,
+           grid_coords$x,
+           log(lambda_mean),
+           nx = 10, 
+           ny = 10, 
+           col = terrain.colors(100),
+           main = "Posterior Mean Fused")
 
-image.plot(x_seq, y_seq, log(t(lambda_mean_mat)),
-           main = "Posterior Mean",
-           col = terrain.colors(50))
+quilt.plot(grid_coords$y,
+           grid_coords$x,
+           log(lambda_mean1),
+           nx = 10, 
+           ny = 10, 
+           col = terrain.colors(100),
+           main = "Posterior Mean Source 1 Only")
 
-image.plot(x_seq, y_seq, log(t(lambda_mean_mat1)),
-           main = "Posterior Mean using only Source 1",
-           col = terrain.colors(50))
-
-image.plot(x_seq, y_seq, log(t(lambda_mean_mat2)),
-           main = "Posterior Mean using only Source 2",
-           col = terrain.colors(50))
+quilt.plot(grid_coords$y,
+           grid_coords$x,
+           log(lambda_mean2),
+           nx = 10, 
+           ny = 10, 
+           col = terrain.colors(100),
+           main = "Posterior Mean Source 2 Only")
+par(mfrow = c(1,1))
 
 # Posterior g map ---------------------------------------------------------------
-    posterior_g <- matrix(NA, nrow = nrow(data$X_grid), ncol = (iters - burnin))
+posterior_g <- matrix(NA, nrow = nrow(data$X_grid), ncol = (iters - burnin))
     
-    for (m in 1:(iters - burnin)) {
-      log_g_m <-  g_post[, m]
-      posterior_g[, m] <- exp(log_g_m)
-    }
+  for (m in 1:(iters - burnin)) {
+    log_g_m <-  g_post[, m]
+    posterior_g[, m] <- exp(log_g_m)
+  }
     
-    # Posterior mean intensity
-    g_mean <- rowMeans(posterior_g)
+  # Posterior mean intensity
+  g_mean <- rowMeans(posterior_g)
+
+  # Plot posterior mean intensity (on log scale)
+  par(mfrow = c(2,2))
+    quilt.plot(grid_coords$y, 
+               grid_coords$x, 
+               log(g_mean),
+               nx = 10,
+               ny = 10, 
+               col = topo.colors(100))
     
-    # Reshape to spatial grid
-    g_mean_mat <- matrix(g_mean,
-                         nrow = length(x_seq),
-                         ncol = length(y_seq),
-                         byrow = TRUE)
-    
-    # Plot posterior mean intensity (on log scale)
-    par(mfrow = c(2,2))
-    image.plot(x_seq, y_seq, log(t(g_mean_mat)),
-               main = "Posterior g intensity (linking function)",
-               xlab = "x", ylab = "y",
-               col = terrain.colors(100))
-    
-    image.plot(x_seq, y_seq, log(t(lambda_mean_mat)),
-               main = "Posterior Mean Intensity",
-               xlab = "x", ylab = "y",
-               col = terrain.colors(100))
-    par(mfrow = c(1,1))
+    quilt.plot(grid_coords$y, 
+               grid_coords$x, 
+               log(lambda_mean),
+               nx = 10,
+               ny = 10, 
+               col = terrain.colors(100),
+               main = "Posterior Mean Intensity")
+par(mfrow = c(1,1))
     
 # Multiple simulations for credible intervals ------------------------------------
-load("n_sims_df.RData")
+load("n_sims_df1.RData")
+load("n_sims_df2.RData")
 #Beta 
 
 beta0_covered <- (n_sims_df$beta0_lower <= 1 &
@@ -239,3 +265,12 @@ covered_tau2
 covered_alpha <- mean(n_sims_df$alpha_lower <= -0.2 &
                         n_sims_df$alpha_upper >= -0.2)
 covered_alpha
+
+#covered count
+
+count_lower <- n_sims_df$expected_count - 1.96 * n_sims_df$expected_count_sd
+count_upper <- n_sims_df$expected_count + 1.96 * n_sims_df$expected_count_sd
+covered_count <- mean(count_lower <= n_sims_df$actual_count &
+      count_upper >= n_sims_df$actual_count)
+
+covered_count

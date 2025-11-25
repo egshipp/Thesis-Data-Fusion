@@ -123,20 +123,22 @@ loglike <- function(parameters, data) {
   
   log_lambda_points1 <- parameters$beta[1] + parameters$z[data$nn_index_1]
   term1 <- sum(log_lambda_points1)
+
+  log_lambda_grid1 <- parameters$beta[1] + parameters$z
+
+  lambda_grid1 <- exp(log_lambda_grid1)
+  term2 <- sum(lambda_grid1 * data$cell_area)
   
-  log_lambda_grid1_full <- parameters$beta[1] + parameters$z
+  # log_lambda_points2 <- parameters$beta[1] + parameters$g[data$nn_index_2] + parameters$z[data$nn_index_2]
+  # term3 <- sum(log_lambda_points2)
+  # 
+  # log_lambda_grid2 <- parameters$beta[1] + parameters$g + parameters$z
+  # 
+  # lambda_grid2 <- exp(log_lambda_grid2)
+  # term4 <- sum(lambda_grid2 * data$cell_area)
   
-  lambda_grid1_masked <- exp(log_lambda_grid1_full)
-  term2 <- sum(lambda_grid1_masked * data$cell_area)
-  
-  log_lambda_points2 <- parameters$beta[1] + parameters$g[data$nn_index_2] + parameters$z[data$nn_index_2]
-  term3 <- sum(log_lambda_points2)
-  
-  log_lambda_grid2 <- parameters$beta[1] + parameters$g + parameters$z
-  lambda_grid2 <- exp(log_lambda_grid2)
-  term4 <- sum(lambda_grid2 * data$cell_area)
-  
-  likelihood <- (term1 - term2) + (term3 - term4)
+  likelihood <-  (term1 - term2) 
+  # +(term3 - term4)
   return(likelihood)
 }
 
@@ -306,8 +308,8 @@ driver <- function(parameters, priors, data, iters){
     parameters <- update_betas(parameters, priors, data) 
     out$beta[,k]=parameters$beta
     
-    parameters <- update_g(parameters, priors, data) 
-    out$g[,k] <- parameters$g
+    # parameters <- update_g(parameters, priors, data) 
+    # out$g[,k] <- parameters$g
     
     parameters <- update_z(parameters, priors, data) 
     out$z[,k] <- parameters$z
@@ -315,11 +317,11 @@ driver <- function(parameters, priors, data, iters){
     parameters <- update_sigma_2(parameters, priors, data)
     out$sigma_2[,k] <- parameters$sigma_2
     
-    parameters <- update_alpha(parameters, priors, data)
-    out$alpha[,k] <- parameters$alpha
-    
-    parameters <- update_tau_2(parameters, priors, data)
-    out$tau_2[,k] <- parameters$tau_2
+    # parameters <- update_alpha(parameters, priors, data)
+    # out$alpha[,k] <- parameters$alpha
+    # 
+    # parameters <- update_tau_2(parameters, priors, data)
+    # out$tau_2[,k] <- parameters$tau_2
   }
   return(out)
 }
@@ -357,15 +359,14 @@ priors <- list(beta_mean = 0,
                b_0_sigma = 1,
                a_0_tau = 2,
                b_0_tau = 1,
-               phi = 0.1,
-               z_var = 0.2)
+               phi = 1)
 
 iters <- 10000
 burnin <- 3000
 
 # Run driver -----------------------------------------------------------------------
 # sim <- driver(parameters, priors, data, iters)
-
+# save(sim, file = "application_sim_res20_newpriors.RData")
 load("application_sim_res20.RData")
 
 beta_post <- sim$beta[, (burnin+1):iters]
@@ -395,41 +396,46 @@ sd(g_post_water)
 mean(z_post_water)
 sd(z_post_water)
 
-
 # Posterior Plots ----------------------------------------------------------------
 # Posterior intensity matrix
 posterior_lambda <- matrix(NA, nrow = nrow(grid_coords), ncol = (iters - burnin))
 
 for (m in 1:(iters - burnin)) {
   beta_m <- beta_post[m]
-  log_lambda_m <- beta_m + z_post[, m] + g_post[, m]
+  log_lambda_m <- beta_m + z_post[, m]
   posterior_lambda[, m] <- exp(log_lambda_m)
 }
 
 # Posterior mean intensity
 lambda_mean <- rowMeans(posterior_lambda)
+lambda_sd <- apply(posterior_lambda, 1, sd)
 
-lambda_mean[grid_land$id] <- 1e-3
-
-# Reshape to spatial grid
-lambda_mean_mat <- matrix(lambda_mean,
-                          nrow = length(x_seq),
-                          ncol = length(y_seq),
-                          byrow = TRUE)
+lambda_mean[grid_land$id] <- NA
 
 # Plot posterior mean intensity (on log scale)
 par(mfrow = c(2,2))
-image.plot(x_seq, y_seq, log(t(lambda_mean_mat)),
-           main = "Posterior Mean Intensity (log scale)",
-           xlab = "x", ylab = "y",
-           col = terrain.colors(100), 
-           xlim = x_bound, ylim = y_bound)
+quilt.plot(
+  grid_coords$x, 
+  grid_coords$y, 
+  log(lambda_mean), 
+  main = "Posterior Intensity", 
+  nx = 20, 
+  ny = 20
+)
   map("state", "massachusetts", add = TRUE)
-plot(auto_water_xy$X, auto_water_xy$Y, main = "Automated Locations", 
-     xlim = x_bound, ylim = y_bound)
+
+plot(auto_water_xy$X, 
+     auto_water_xy$Y, 
+     main = "Automated Locations", 
+     xlim = x_bound, 
+     ylim = y_bound)
   map("state", "massachusetts", add = TRUE)
-plot(manual_water_xy$X, manual_water_xy$Y, main = "Manual Locations", 
-     xlim = x_bound, ylim = y_bound)
+  
+plot(manual_water_xy$X, 
+     manual_water_xy$Y, 
+     main = "Manual Locations", 
+     xlim = x_bound, 
+     ylim = y_bound)
   map("state", "massachusetts", add = TRUE)
 
 par(mfrow = c(1,1))
@@ -445,33 +451,28 @@ for (m in 1:(iters - burnin)) {
 # Posterior mean intensity
 g_mean <- rowMeans(posterior_g)
 
-g_mean[grid_land$id] <- 1e-3
+g_mean[grid_land$id] <- NA
 
-# Reshape to spatial grid
-g_mean_mat <- matrix(g_mean,
-                          nrow = length(x_seq),
-                          ncol = length(y_seq),
-                          byrow = TRUE)
-gmin <- min(c(log(g_mean_mat), na.rm = TRUE))
-gmax <- max(c(log(g_mean_mat), na.rm = TRUE))
-
-zmin <- min( log(lambda_mean_mat), na.rm = TRUE)
-zmax <- max( log(lambda_mean_mat), na.rm = TRUE)
-# Plot posterior mean intensity (on log scale)
+# Plot posterior mean intensity
 par(mfrow = c(2,2))
-image.plot(x_seq, y_seq, log(t(g_mean_mat)),
-           main = "Posterior g intensity (linking function)",
-           xlab = "x", ylab = "y",
-           col = terrain.colors(100), 
-           zlim = c(gmin, gmax),
-           xlim = x_bound, ylim = y_bound)
-
-image.plot(x_seq, y_seq, log(t(lambda_mean_mat)),
-           main = "Posterior Mean Intensity",
-           xlab = "x", ylab = "y",
-           col = terrain.colors(100), 
-           zlim = c(zmin, zmax),
-           xlim = x_bound, ylim = y_bound)
+quilt.plot(
+  grid_coords$x,
+  grid_coords$y,
+  log(g_mean),
+  main = "Posterior Intensity",
+  nx = 20, 
+  ny = 20
+)
+map("state", "massachusetts", add = TRUE)
+quilt.plot(
+  grid_coords$x, 
+  grid_coords$y, 
+  log(t(lambda_mean)), 
+  main = "Posterior Intensity", 
+  nx = 20, 
+  ny = 20
+)
+map("state", "massachusetts", add = TRUE)
 par(mfrow = c(1,1))
 
 # Trace Plots -------------------------------------------------------------------
@@ -500,8 +501,8 @@ data_1 <- list(X_grid = X_grid,
              dists = as.matrix(dist(coords)))
 
 # sim_source1 <- driver(parameters, priors, data_1, iters)
-# 
-# save(sim_source1, file = "application_sim_source1.RData")
+
+save(sim_source1, file = "application_sim_source1.RData")
 
 load("application_sim_source1.RData")
 
@@ -536,35 +537,35 @@ posterior1_lambda <- matrix(NA, nrow = nrow(grid_coords), ncol = (iters - burnin
 
 for (m in 1:(iters - burnin)) {
   beta1_m <- beta1_post[m]
-  log_lambda1_m <- beta1_m + z1_post[, m] + g1_post[, m]
+  log_lambda1_m <- beta1_m + z1_post[, m]
   posterior1_lambda[, m] <- exp(log_lambda1_m)
 }
 
 # Posterior mean intensity
 lambda1_mean <- rowMeans(posterior1_lambda)
 
-lambda1_mean[grid_land$id] <- 1e-3
+lambda1_mean[grid_land$id] <- NA
 
-# Reshape to spatial grid
-lambda1_mean_mat <- matrix(lambda1_mean,
-                          nrow = length(x_seq),
-                          ncol = length(y_seq),
-                          byrow = TRUE)
-
-# Plot posterior mean intensity (on log scale)
+# Plot posterior mean intensity
 par(mfrow = c(1,2))
-image.plot(x_seq, y_seq, log(t(lambda1_mean_mat)),
-           main = "Posterior Mean Intensity Only Source 1(log scale)",
-           xlab = "x", ylab = "y",
-           col = terrain.colors(100), 
-           xlim = x_bound, ylim = y_bound)
-map("state", "massachusetts", add = TRUE)
-image.plot(x_seq, y_seq, log(t(lambda_mean_mat)),
-           main = "Posterior Mean Intensity Only Source 1(log scale)",
-           xlab = "x", ylab = "y",
-           col = terrain.colors(100), 
-           xlim = x_bound, ylim = y_bound)
-map("state", "massachusetts", add = TRUE)
+quilt.plot(
+  grid_coords$x,
+  grid_coords$y,
+  log(t(lambda1_mean)),
+  main = "Posterior Intensity Using Source 1",
+  nx = 20, 
+  ny = 20
+)
+  map("state", "massachusetts", add = TRUE)
+quilt.plot(grid_coords$x, 
+           grid_coords$y, 
+           log(t(lambda_mean)),
+           main = "Posterior Mean Intensity Fusion",
+           xlim = x_bound, 
+           ylim = y_bound, 
+           nx = 20, 
+           ny = 20)
+  map("state", "massachusetts", add = TRUE)
 par(mfrow = c(1,1))
 
 # Only Source 2 Sim ---------------------------------------------------------------
@@ -619,39 +620,82 @@ posterior2_lambda <- matrix(NA, nrow = nrow(grid_coords), ncol = (iters - burnin
 
 for (m in 1:(iters - burnin)) {
   beta2_m <- beta2_post[m]
-  log_lambda2_m <- beta2_m + z2_post[, m] + g2_post[, m]
+  log_lambda2_m <- beta2_m + z2_post[, m]
   posterior2_lambda[, m] <- exp(log_lambda2_m)
 }
 
 # Posterior mean intensity
 lambda2_mean <- rowMeans(posterior2_lambda)
 
-lambda2_mean[grid_land$id] <- 1e-3
-
-# Reshape to spatial grid
-lambda2_mean_mat <- matrix(lambda2_mean,
-                           nrow = length(x_seq),
-                           ncol = length(y_seq),
-                           byrow = TRUE)
+lambda2_mean[grid_land$id] <- NA
 
 # Plot posterior mean intensity (on log scale)
 par(mfrow = c(2,2))
-image.plot(x_seq, y_seq, log(t(lambda1_mean_mat)),
-           main = "Posterior Mean Intensity Only Source 1(log scale)",
-           xlab = "x", ylab = "y",
-           col = terrain.colors(100), 
-           xlim = x_bound, ylim = y_bound)
-image.plot(x_seq, y_seq, log(t(lambda2_mean_mat)),
-           main = "Posterior Mean Intensity Only Source 2(log scale)",
-           xlab = "x", ylab = "y",
-           col = terrain.colors(100), 
-           xlim = x_bound, ylim = y_bound)
-image.plot(x_seq, y_seq, log(t(lambda_mean_mat)),
-           main = "Posterior Mean Intensity Only(log scale)",
-           xlab = "x", ylab = "y",
-           col = terrain.colors(100), 
-           xlim = x_bound, ylim = y_bound)
+quilt.plot(grid_coords$x, 
+           grid_coords$y, 
+           log(t(lambda_mean)),
+           main = "Posterior Mean Intensity Fusion",
+           xlim = x_bound, 
+           ylim = y_bound, 
+           nx = 20, 
+           ny = 20)
 map("state", "massachusetts", add = TRUE)
 
+quilt.plot(
+  grid_coords$x,
+  grid_coords$y,
+  log(t(lambda1_mean)),
+  main = "Posterior Intensity Using Source 1",
+  nx = 20, 
+  ny = 20
+)
+map("state", "massachusetts", add = TRUE)
 
+quilt.plot(grid_coords$x, 
+           grid_coords$y, 
+           log(t(lambda2_mean)),
+           main = "Posterior Intensity Using Source 2",
+           nx = 20, 
+           ny = 20)
+map("state", "massachusetts", add = TRUE)
 par(mfrow = c(1,1))
+
+# Estimating whale counts -------------------------------------------------------
+# Fused
+
+n_draws <- ncol(posterior_lambda)
+
+expected_total_per_draw_fused <- numeric(n_draws)
+
+for (m in 1:n_draws) {
+  expected_total_per_draw_fused[m] <- sum(posterior_lambda[, m] * data$cell_area, na.rm = TRUE)
+}
+
+expected_mean_fused <- mean(expected_total_per_draw_fused)
+expected_sd_fused   <- sd(expected_total_per_draw_fused)
+expected_mean_fused
+expected_sd_fused
+
+# Source 1
+expected_total_per_draw_source1 <- numeric(n_draws)
+
+for (m in 1:n_draws) {
+  expected_total_per_draw_source1[m] <- sum(posterior1_lambda[, m] * data$cell_area, na.rm = TRUE)
+}
+
+expected_mean_fused_source1 <- mean(expected_total_per_draw_source1)
+expected_sd_fused_source1   <- sd(expected_total_per_draw_source1)
+expected_mean_fused_source1
+expected_sd_fused_source1
+
+# Source 2
+expected_total_per_draw_source2 <- numeric(n_draws)
+
+for (m in 1:n_draws) {
+  expected_total_per_draw_source2[m] <- sum(posterior2_lambda[, m] * data$cell_area, na.rm = TRUE)
+}
+
+expected_mean_fused_source2 <- mean(expected_total_per_draw_source2)
+expected_sd_fused_source2   <- sd(expected_total_per_draw_source2)
+expected_mean_fused_source2
+expected_sd_fused_source2
