@@ -8,6 +8,7 @@ library(coda)
 
 # True LGCP --------------------------------------------------------------------
 # Simulate Covariate
+set.seed(123)
 par(mfrow = c(1,1))
 win <- owin(xrange = c(0, 10), yrange = c(0, 10))
 
@@ -28,14 +29,14 @@ grid_coords <- expand.grid(x = y_seq, y = x_seq)
 dists <- as.matrix(dist(coords))
 n <- nrow(coords)
 
-S <- 0.2 * exp(-dists/1.5)
+S <- 0.2 * exp(-dists/4)
 
 mu <- rep(0, n)
 
 covariate <- as.vector(rcpp_rmvnorm(1,S,mu))
 # save(covariate, file = "sim_covariate.Rdata")
 
-cov_field <- matrix(covariate,
+cov_field <- matrix(covariate - mean(covariate),
                     nrow = grid_res,
                     ncol = grid_res,
                     byrow = TRUE)
@@ -75,7 +76,7 @@ lambda_im <- im(lambda, xcol = x_seq, yrow = y_seq)
 lgcp_sim <- rpoispp(lambda_im)
 
 plot(lgcp_sim)
-
+lgcp_sim
 # Discretize using spatstat
 
 lgcp_discretize <- pixellate(lgcp_sim, eps = 1)
@@ -478,7 +479,7 @@ plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
 
 # Running multiple simulations to show credible intervals ---------------------
 
-n_sims <- 100
+n_sims <- 5
 n_sims_df <- data.frame()
 
 for (i in 1:n_sims){
@@ -504,13 +505,13 @@ for (i in 1:n_sims){
   dists <- as.matrix(dist(coords))
   n <- nrow(coords)
   
-  S <- 0.2 * exp(-dists/1.5)
+  S <- 0.2 * exp(-dists/4)
   
   mu <- rep(0, n)
   
   covariate <- as.vector(rcpp_rmvnorm(1,S,mu))
   
-  cov_field <- matrix(covariate,
+  cov_field <- matrix(covariate - mean(covariate),
                       nrow = grid_res,
                       ncol = grid_res,
                       byrow = TRUE)
@@ -740,3 +741,8 @@ for (i in 1:n_sims){
 }
 
 save(n_sims_df, file = "n_sims_df2.Rdata")
+
+quilt.plot(grid_coords$x,grid_coords$y, apply(sim$g[,3000:10000], 1, mean), 
+           nx = 10, 
+           ny= 10)
+dim(sim$g)

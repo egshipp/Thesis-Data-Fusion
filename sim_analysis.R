@@ -270,7 +270,8 @@ covered_alpha
 
 count_lower <- n_sims_df$expected_count - 1.96 * n_sims_df$expected_count_sd
 count_upper <- n_sims_df$expected_count + 1.96 * n_sims_df$expected_count_sd
-covered_count <- mean(count_lower <= n_sims_df$actual_count &
-      count_upper >= n_sims_df$actual_count)
+covered_count <- mean(n_sims_df$count_lower <= n_sims_df$actual_count &
+      n_sims_df$count_upper >= n_sims_df$actual_count)
 
 covered_count
+

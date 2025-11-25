@@ -459,7 +459,7 @@ quilt.plot(
   grid_coords$x,
   grid_coords$y,
   log(g_mean),
-  main = "Posterior Intensity",
+  main = "Posterior g Intensity",
   nx = 20, 
   ny = 20
 )
@@ -502,36 +502,25 @@ data_1 <- list(X_grid = X_grid,
 
 # sim_source1 <- driver(parameters, priors, data_1, iters)
 
-save(sim_source1, file = "application_sim_source1.RData")
+# save(sim_source1, file = "application_sim_source1.RData")
 
 load("application_sim_source1.RData")
-
-beta1_post <- sim_source1$beta[, (burnin+1):iters]
-alpha1_post <- sim_source1$alpha[,(burnin+1):iters]
-sigma1_2_post <- sim_source1$sigma_2[,(burnin+1):iters]
-tau1_2_post <- sim_source1$tau_2[,(burnin+1):iters]
-g1_post <- sim_source1$g[,(burnin+1):iters]
-g1_post_water <- g1_post[grid_water$id,]
-z1_post <- sim_source1$z[,(burnin+1):iters]
-z1_post_water <- z1_post[grid_water$id,]
-
-mean(beta1_post)
-sd(beta1_post)
-
-mean(sigma1_2_post)
-sd(sigma1_2_post)
-
-mean(tau1_2_post)
-sd(tau1_2_post)
-
-mean(alpha1_post)
-sd(alpha1_post)
-
-mean(g1_post_water)
-sd(g1_post_water)
-
-mean(z1_post_water)
-sd(z1_post_water)
+  
+  beta1_post <- sim_source1$beta[, (burnin+1):iters]
+  alpha1_post <- sim_source1$alpha[,(burnin+1):iters]
+  sigma1_2_post <- sim_source1$sigma_2[,(burnin+1):iters]
+  tau1_2_post <- sim_source1$tau_2[,(burnin+1):iters]
+  z1_post <- sim_source1$z[,(burnin+1):iters]
+  z1_post_water <- z1_post[grid_water$id,]
+  
+  mean(beta1_post)
+  sd(beta1_post)
+  
+  mean(sigma1_2_post)
+  sd(sigma1_2_post)
+  
+  mean(z1_post_water)
+  sd(z1_post_water)
 
 posterior1_lambda <- matrix(NA, nrow = nrow(grid_coords), ncol = (iters - burnin))
 
@@ -603,15 +592,6 @@ sd(beta2_post)
 
 mean(sigma2_2_post)
 sd(sigma2_2_post)
-
-mean(tau2_2_post)
-sd(tau2_2_post)
-
-mean(alpha2_post)
-sd(alpha2_post)
-
-mean(g2_post_water)
-sd(g2_post_water)
 
 mean(z2_post_water)
 sd(z2_post_water)
