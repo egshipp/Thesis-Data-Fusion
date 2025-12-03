@@ -8,7 +8,7 @@ library(coda)
 
 # True LGCP --------------------------------------------------------------------
 # Simulate Covariate
-set.seed(123)
+# set.seed(123)
 par(mfrow = c(1,1))
 win <- owin(xrange = c(0, 10), yrange = c(0, 10))
 
@@ -29,11 +29,11 @@ grid_coords <- expand.grid(x = y_seq, y = x_seq)
 dists <- as.matrix(dist(coords))
 n <- nrow(coords)
 
-S <- 0.2 * exp(-dists/4)
+# S <- 0.2 * exp(-dists/4)
+# 
+# mu <- rep(0, n)
 
-mu <- rep(0, n)
-
-covariate <- as.vector(rcpp_rmvnorm(1,S,mu))
+# covariate <- as.vector(rcpp_rmvnorm(1,S,mu))
 # save(covariate, file = "sim_covariate.Rdata")
 
 cov_field <- matrix(covariate - mean(covariate),
@@ -463,7 +463,7 @@ iters <- 15000
 
 burnin <- 3000
 
-sim <- driver(parameters, priors, data, iters) # took 20 min to run with res = 20
+# sim <- driver(parameters, priors, data, iters) # took 20 min to run with res = 20
 
 # save(sim_source2, file = "sim_source2.RData")
 
@@ -479,13 +479,18 @@ plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
 
 # Running multiple simulations to show credible intervals ---------------------
 
-n_sims <- 5
+n_sims <- 50
 n_sims_df <- data.frame()
+
+S <- 0.15 * exp(-dists/4)
+
+mu <- rep(0, n)
+
+covariate <- as.vector(rcpp_rmvnorm(1,S,mu))
 
 for (i in 1:n_sims){
   cat("Running simulation", i, "of", n_sims, "\n")
   
-  #Simulate Covariate
   win <- owin(xrange = c(0, 10), yrange = c(0, 10))
   
   grid_res <- 10
@@ -504,13 +509,13 @@ for (i in 1:n_sims){
   
   dists <- as.matrix(dist(coords))
   n <- nrow(coords)
-  
-  S <- 0.2 * exp(-dists/4)
-  
-  mu <- rep(0, n)
-  
-  covariate <- as.vector(rcpp_rmvnorm(1,S,mu))
-  
+# 
+#   S <- 0.2 * exp(-dists/4)
+# 
+#   mu <- rep(0, n)
+# 
+#   covariate <- as.vector(rcpp_rmvnorm(1,S,mu))
+
   cov_field <- matrix(covariate - mean(covariate),
                       nrow = grid_res,
                       ncol = grid_res,
@@ -523,9 +528,9 @@ for (i in 1:n_sims){
   
   #Simulate Gaussian random field
   
-  sigma_2 <- 0.25
+  sigma_2 <- 0.10
   
-  S_z <-  sigma_2 * exp(-dists/1)
+  S_z <-  sigma_2 * exp(-dists/4)
   
   z <- as.vector(rcpp_rmvnorm(1,S_z,mu))
   
@@ -537,15 +542,16 @@ for (i in 1:n_sims){
                marks = z)
   
   # Simulate LGCP
-  b_0 <- 1
+  b_0 <- 1.5
   b_1 <- 3
   
   lambda <- exp(b_0 + b_1*(cov_field) + z)
   lambda_im <- im(lambda, xcol = x_seq, yrow = y_seq)
   
   lgcp_sim <- rpoispp(lambda_im)
+  lgcp_sim
   
-  plot(lgcp_sim)
+  plot(lgcp_sim, main = paste("lgcp_sim", i))
   
   # Discretize using spatstat
   
@@ -579,7 +585,7 @@ for (i in 1:n_sims){
   # Source 2 --------
   
   tau_2 <- 0.4
-  S_g <- tau_2 * exp(-dists/1.5)
+  S_g <- tau_2 * exp(-dists/2)
   alpha <- -0.2
   
   #g <- rnorm(nrow * ncol, alpha, tau_2)
@@ -648,12 +654,12 @@ for (i in 1:n_sims){
                  b_0_sigma = 1,
                  a_0_tau = 2,
                  b_0_tau = 1,
-                 phi = 2
+                 phi = 5
   )
   
   iters <- 10000
   
-  burnin <- 1000
+  burnin <- 3000
   
   # Run simulation ----------
   
@@ -695,6 +701,7 @@ for (i in 1:n_sims){
   # Store just summary stats
    n_sims_df <- rbind(n_sims_df, data.frame(
     sim = i,
+    sim_n = lgcp_sim$n,
     
     # beta parameters
     beta0_mean = mean(beta_post[1,]), 
@@ -737,12 +744,9 @@ for (i in 1:n_sims){
     count_lower = quantile(expected_total_per_draw_fused, 0.025),
     count_upper = quantile(expected_total_per_draw_fused, 0.975),
     actual_count = actual_count
+    
   ))
 }
 
-save(n_sims_df, file = "n_sims_df2.Rdata")
+save(n_sims_df, file = "n_40_sims_df.Rdata")
 
-quilt.plot(grid_coords$x,grid_coords$y, apply(sim$g[,3000:10000], 1, mean), 
-           nx = 10, 
-           ny= 10)
-dim(sim$g)

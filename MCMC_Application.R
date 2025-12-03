@@ -95,6 +95,15 @@ plot(grid_water_xy$X, grid_water_xy$Y, main = "Grid Locations",
      xlim = x_all, ylim = y_all)
 map("state", "massachusetts", add = TRUE)
 par(mfrow = c(1,1))
+# 
+# par(mfrow = c(2,2))
+# plot(auto_water_xy$X, auto_water_xy$Y, main = "Automated Locations", xlab = "Longitude", ylab = "Latitude",
+#      xlim = x_all, ylim = y_all)
+# map("state", "massachusetts", add = TRUE)
+# plot(manual_water_xy$X, manual_water_xy$Y, main = "Manual Locations", xlab = "Longitude", ylab = "Latitude",
+#      xlim = x_all, ylim = y_all)
+# map("state", "massachusetts", add = TRUE)
+# par(mfrow = c(1,1))
 
 # Dataframe creation for MCMC ---------------------------------------------------
 
@@ -439,6 +448,18 @@ plot(manual_water_xy$X,
   map("state", "massachusetts", add = TRUE)
 
 par(mfrow = c(1,1))
+# 
+# quilt.plot(
+#   grid_coords$x, 
+#   grid_coords$y, 
+#   log(lambda_mean), 
+#   main = "Fused Data Posterior Intensity Surface", 
+#   xlab = "Longitude",
+#   ylab = "Latitude",
+#   nx = 20, 
+#   ny = 20
+# )
+# map("state", "massachusetts", add = TRUE)
 
 # Posterior g map ---------------------------------------------------------------
 posterior_g <- matrix(NA, nrow = nrow(grid_coords), ncol = (iters - burnin))
@@ -474,6 +495,18 @@ quilt.plot(
 )
 map("state", "massachusetts", add = TRUE)
 par(mfrow = c(1,1))
+
+# quilt.plot(
+#   grid_coords$x,
+#   grid_coords$y,
+#   log(g_mean),
+#   main = "Posterior Additive Calibration Parameter Intensity Surface",
+#   xlab = "Longitude",
+#   ylab = "Longitude",
+#   nx = 20, 
+#   ny = 20
+# )
+# map("state", "massachusetts", add = TRUE)
 
 # Trace Plots -------------------------------------------------------------------
 par(mfrow = c(1,1))
@@ -556,6 +589,18 @@ quilt.plot(grid_coords$x,
            ny = 20)
   map("state", "massachusetts", add = TRUE)
 par(mfrow = c(1,1))
+# 
+# quilt.plot(
+#   grid_coords$x,
+#   grid_coords$y,
+#   log(t(lambda1_mean)),
+#   main = "Manual Data Posterior Intensity Surface",
+#   xlab = "Longitude",
+#   ylab = "Latitude",
+#   nx = 20, 
+#   ny = 20
+# )
+# map("state", "massachusetts", add = TRUE)
 
 # Only Source 2 Sim ---------------------------------------------------------------
 
@@ -640,6 +685,16 @@ quilt.plot(grid_coords$x,
 map("state", "massachusetts", add = TRUE)
 par(mfrow = c(1,1))
 
+# quilt.plot(grid_coords$x, 
+#            grid_coords$y, 
+#            log(t(lambda2_mean)),
+#            main = "Automated Data Posterior Intensity Surface",
+#            xlab = "Longitude",
+#            ylab = "Latitude",
+#            nx = 20, 
+#            ny = 20)
+# map("state", "massachusetts", add = TRUE)
+
 # Estimating whale counts -------------------------------------------------------
 # Fused
 
@@ -653,6 +708,10 @@ for (m in 1:n_draws) {
 
 expected_mean_fused <- mean(expected_total_per_draw_fused)
 expected_sd_fused   <- sd(expected_total_per_draw_fused)
+expected_lower <- quantile(expected_total_per_draw_fused, 0.025)
+expected_upper <- quantile(expected_total_per_draw_fused, 0.975)
+expected_lower
+expected_upper 
 expected_mean_fused
 expected_sd_fused
 
@@ -665,8 +724,12 @@ for (m in 1:n_draws) {
 
 expected_mean_fused_source1 <- mean(expected_total_per_draw_source1)
 expected_sd_fused_source1   <- sd(expected_total_per_draw_source1)
+source1_lower <- quantile(expected_total_per_draw_source1, 0.025)
+source1_upper <- quantile(expected_total_per_draw_source1, 0.975)
 expected_mean_fused_source1
 expected_sd_fused_source1
+source1_lower
+source1_upper
 
 # Source 2
 expected_total_per_draw_source2 <- numeric(n_draws)
@@ -677,5 +740,9 @@ for (m in 1:n_draws) {
 
 expected_mean_fused_source2 <- mean(expected_total_per_draw_source2)
 expected_sd_fused_source2   <- sd(expected_total_per_draw_source2)
+source2_lower <- quantile(expected_total_per_draw_source2, 0.025)
+source2_upper <- quantile(expected_total_per_draw_source2, 0.975)
+source2_lower
+source2_upper
 expected_mean_fused_source2
 expected_sd_fused_source2

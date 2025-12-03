@@ -231,8 +231,9 @@ posterior_g <- matrix(NA, nrow = nrow(data$X_grid), ncol = (iters - burnin))
 par(mfrow = c(1,1))
     
 # Multiple simulations for credible intervals ------------------------------------
-load("n_sims_df1.RData")
-load("n_sims_df2.RData")
+load("n_sims_df.RData")
+load("n_20_sims_df.RData")
+
 #Beta 
 
 beta0_covered <- (n_sims_df$beta0_lower <= 1 &
@@ -268,8 +269,6 @@ covered_alpha
 
 #covered count
 
-count_lower <- n_sims_df$expected_count - 1.96 * n_sims_df$expected_count_sd
-count_upper <- n_sims_df$expected_count + 1.96 * n_sims_df$expected_count_sd
 covered_count <- mean(n_sims_df$count_lower <= n_sims_df$actual_count &
       n_sims_df$count_upper >= n_sims_df$actual_count)
 
