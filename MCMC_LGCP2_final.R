@@ -8,7 +8,6 @@ library(coda)
 
 # True LGCP --------------------------------------------------------------------
 # Simulate Covariate
-# set.seed(123)
 par(mfrow = c(1,1))
 win <- owin(xrange = c(0, 10), yrange = c(0, 10))
 
@@ -29,11 +28,11 @@ grid_coords <- expand.grid(x = y_seq, y = x_seq)
 dists <- as.matrix(dist(coords))
 n <- nrow(coords)
 
-# S <- 0.2 * exp(-dists/4)
-# 
-# mu <- rep(0, n)
+S <- 0.2 * exp(-dists/4)
 
-# covariate <- as.vector(rcpp_rmvnorm(1,S,mu))
+mu <- rep(0, n)
+
+covariate <- as.vector(rcpp_rmvnorm(1,S,mu))
 # save(covariate, file = "sim_covariate.Rdata")
 
 cov_field <- matrix(covariate - mean(covariate),
@@ -50,9 +49,9 @@ image.plot(x_seq, y_seq, cov_field, col = terrain.colors(100), main = "Simulated
 
 #Simulate Gaussian random field
 
-sigma_2 <- 0.25
+sigma_2 <- 0.10
 
-S_z <-  sigma_2 * exp(-dists/1)
+S_z <-  sigma_2 * exp(-dists/4)
 
 z <- as.vector(rcpp_rmvnorm(1,S_z,mu))
 
@@ -66,7 +65,7 @@ z_ppp <- ppp(x = grid_coords$x,
 image.plot(x_seq, y_seq, z_mat, col = terrain.colors(100), main = "Simulated Exponential Latent Gaussian Field")
 
 # Simulate LGCP
-b_0 <- 1
+b_0 <- 1.5
 b_1 <- 3
 
 lambda <- exp(b_0 + b_1*(cov_field) + z)
@@ -75,8 +74,11 @@ lambda_im <- im(lambda, xcol = x_seq, yrow = y_seq)
 
 lgcp_sim <- rpoispp(lambda_im)
 
-plot(lgcp_sim)
-lgcp_sim
+plot(lgcp_sim, main = "Simulated True Point Process")
+
+# save(lgcp_sim, file = "lgcp_sim.RData")
+# load("lgcp_sim.RData")
+
 # Discretize using spatstat
 
 lgcp_discretize <- pixellate(lgcp_sim, eps = 1)
@@ -112,6 +114,8 @@ lgcp_1_sub1 <- rpoispp(lambda_1[sub_window1])
 lgcp_1_sub2 <- rpoispp(lambda_1[sub_window2])
 
 lgcp_1 <- superimpose(lgcp_1_sub1, lgcp_1_sub2, W = owin(c(0,10), c(0,10)))
+# save(lgcp_1, file = "lgcp_1.RData")
+# load("lgcp_1.RData")
 
 par(mfrow=(c(1,2)))
 plot(lgcp_discretize)
@@ -120,7 +124,7 @@ par(mfrow=(c(1,1)))
 
 par(mfrow=(c(1,2)))
 plot(lgcp_sim)
-plot(lgcp_1)
+plot(lgcp_1, main = "Simulated Source 1 Realization")
 par(mfrow=(c(1,1)))
 
 plot(win, main = "f measurement error field")
@@ -142,6 +146,8 @@ exp_g <- exp(g)
 lambda_2 <- lgcp_discretize * exp_g
 
 lgcp_2 <- rpoispp(lambda_2)
+# save(lgcp_2, file = "lgcp_2.RData")
+# load("lgcp_2.RData")
 
 par(mfrow=(c(1,2)))
 plot(lgcp_discretize)
@@ -153,16 +159,18 @@ plot(lgcp_sim)
 plot(lgcp_2)
 par(mfrow=(c(1,1)))
 
-# png("sim_point_patterns.png", width = 1800, height = 600, res = 150)
-
 par(mfrow = (c(1,3)))
 plot(lgcp_sim, main = "Point Pattern (True Point Pattern)")
 plot(win, main ="Point Pattern (Source 1)")
 points(lgcp_1)
-plot(lgcp_2, main = "Point Pattern (Source 2)")
+plot(lgcp_2, main = "Simulated Source 2 Realization")
 par(mfrow=(c(1,1)))
 
-# dev.off()
+par(mfrow = c(1,2))
+plot(lgcp_1, main = "Simulated Source 1 Realization")
+plot(lgcp_2, main = "Simulated Source 2 Realization")
+par(mfrow = c(1,1))
+
 
 # Data frame creation ----------------------------------------------------------
 
@@ -194,37 +202,37 @@ X_2$covariate <- cov_field_ppp$marks[nn_X_2$which]
 
 par(mfrow = (c(1,2)))
 quilt.plot(X_1$x, X_1$y, X_1$covariate, 
-           nx = 10,
-           ny = 10)
+           nx = 20,
+           ny = 20)
 plot(lgcp_1)
 par(mfrow = (c(1,1)))
 
 
 par(mfrow = (c(1,2)))
 quilt.plot(X_2$x, X_2$y, X_2$covariate, 
-           nx = 10,
-           ny = 10)
+           nx = 20,
+           ny = 20)
 plot(lgcp_2)
 par(mfrow = (c(1,1)))
 
 quilt.plot(X_grid$x, X_grid$y, X_grid$covariate,
-           nx = 10,
-           ny = 10)
+           nx = 20,
+           ny = 20)
 
 # MCMC --------------------------------------------------------------------------
 
 ## log likelihood function
 loglike <- function(parameters, data) {
 
-idx_mask1 <- which(data$X_grid$mask_source1)
-
-log_lambda_points1 <- parameters$beta[1] + parameters$beta[2] * data$X_1$covariate + parameters$z[data$nn_index_1]
-term1 <- sum(log_lambda_points1)
-
-log_lambda_grid1_full <- parameters$beta[1] + parameters$beta[2] * data$X_grid$covariate + parameters$z
-
-lambda_grid1_masked <- exp(log_lambda_grid1_full[idx_mask1])
-term2 <- sum(lambda_grid1_masked * data$cell_area)
+# idx_mask1 <- which(data$X_grid$mask_source1)
+# 
+# log_lambda_points1 <- parameters$beta[1] + parameters$beta[2] * data$X_1$covariate + parameters$z[data$nn_index_1]
+# term1 <- sum(log_lambda_points1)
+# 
+# log_lambda_grid1_full <- parameters$beta[1] + parameters$beta[2] * data$X_grid$covariate + parameters$z
+# 
+# lambda_grid1_masked <- exp(log_lambda_grid1_full[idx_mask1])
+# term2 <- sum(lambda_grid1_masked * data$cell_area)
 
   log_lambda_points2 <- parameters$beta[1] + parameters$beta[2] * data$X_2$covariate + parameters$g[data$nn_index_2] + parameters$z[data$nn_index_2]
   term3 <- sum(log_lambda_points2)
@@ -233,7 +241,8 @@ term2 <- sum(lambda_grid1_masked * data$cell_area)
   lambda_grid2 <- exp(log_lambda_grid2)
   term4 <- sum(lambda_grid2 * data$cell_area)
 
-  likelihood <- (term1 - term2) +(term3 - term4)
+  likelihood <-    (term3 - term4)
+  # (term1 - term2) +
   return(likelihood)
 }
 
@@ -393,18 +402,18 @@ driver <- function(parameters, priors, data, iters){
 
   #Posterior containers
   out$beta=matrix(NA,nrow = length(parameters$beta),ncol = iters)
-  out$g=matrix(NA, nrow = length(parameters$g), ncol = iters)
+  # out$g=matrix(NA, nrow = length(parameters$g), ncol = iters)
   out$z=matrix(NA, nrow = length(parameters$z), ncol = iters)
   out$sigma_2=matrix(NA, nrow = 1, ncol = iters)
-  out$tau_2=matrix(NA, nrow = 1, ncol = iters)
-  out$alpha=matrix(NA, nrow = 1, ncol = iters)
+  # out$tau_2=matrix(NA, nrow = 1, ncol = iters)
+  # out$alpha=matrix(NA, nrow = 1, ncol = iters)
 
   for(k in 1:iters){
     parameters <- update_betas(parameters, priors, data)
     out$beta[,k]=parameters$beta
 
-    parameters <- update_g(parameters, priors, data)
-    out$g[,k] <- parameters$g
+    # parameters <- update_g(parameters, priors, data)
+    # out$g[,k] <- parameters$g
 
     parameters <- update_z(parameters, priors, data)
     out$z[,k] <- parameters$z
@@ -412,11 +421,11 @@ driver <- function(parameters, priors, data, iters){
     parameters <- update_sigma_2(parameters, priors, data)
     out$sigma_2[,k] <- parameters$sigma_2
 
-    parameters <- update_alpha(parameters, priors, data)
-    out$alpha[,k] <- parameters$alpha
-
-    parameters <- update_tau_2(parameters, priors, data)
-    out$tau_2[,k] <- parameters$tau_2
+    # parameters <- update_alpha(parameters, priors, data)
+    # out$alpha[,k] <- parameters$alpha
+    # 
+    # parameters <- update_tau_2(parameters, priors, data)
+    # out$tau_2[,k] <- parameters$tau_2
   }
   return(out)
 }
@@ -424,13 +433,13 @@ driver <- function(parameters, priors, data, iters){
 # Running Simulation -----------------------------------------------------------------
 
 data <- list(X_grid = X_grid,
-             X_1 = X_1,
+             X_1 = 0,
              X_2 = X_2,
+             grid_res = 10,
              cell_area  = (diff(win$xrange) / grid_res) * (diff(win$yrange) / grid_res),
              nn_index_1 = nn_X_1$which,
              nn_index_2 = nn_X_2$which,
              win = win,
-             grid_res = 10,
              cell_size = cell_size,
              x_seq = x_seq,
              y_seq = y_seq,
@@ -459,13 +468,13 @@ priors <- list(beta_mean = c(0,0),
 # save(parameters, file = "sim_parameters.RData")
 # save(priors, file = "sim_priors.Rdata")
 
-iters <- 15000
+iters <- 10000
 
 burnin <- 3000
 
-# sim <- driver(parameters, priors, data, iters) # took 20 min to run with res = 20
+sim_source2 <- driver(parameters, priors, data, iters) # took 20 min to run with res = 20
 
-# save(sim_source2, file = "sim_source2.RData")
+save(sim_source2, file = "sim_source2.RData")
 
 # Trace Plots -------------------------------------------------------------------
 
@@ -479,7 +488,7 @@ plot(sim$alpha[1,], type = "l", main = "alpha trace plot")
 
 # Running multiple simulations to show credible intervals ---------------------
 
-n_sims <- 50
+n_sims <- 100
 n_sims_df <- data.frame()
 
 S <- 0.15 * exp(-dists/4)
@@ -654,7 +663,7 @@ for (i in 1:n_sims){
                  b_0_sigma = 1,
                  a_0_tau = 2,
                  b_0_tau = 1,
-                 phi = 5
+                 phi = 2
   )
   
   iters <- 10000
@@ -686,7 +695,7 @@ for (i in 1:n_sims){
   # Posterior mean intensity
   lambda_mean <- rowMeans(posterior_lambda, na.rm = TRUE)
   
-  # Calculating exxpected count
+  # Calculating expected count
   n_draws <- ncol(posterior_lambda)
   expected_total_per_draw_fused <- numeric(n_draws)
   
@@ -748,5 +757,5 @@ for (i in 1:n_sims){
   ))
 }
 
-save(n_sims_df, file = "n_40_sims_df.Rdata")
+save(n_sims_df, file = "n_sims_df.Rdata")
 

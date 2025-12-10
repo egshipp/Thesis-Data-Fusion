@@ -27,10 +27,12 @@ y_all <- range(c(auto_loc_mat$y, manual_loc_mat$y))
 
 par(mfrow = c(2,2))  
 plot(auto_loc_mat$x, auto_loc_mat$y, main = "Automated Locations", 
-     xlim = x_all, ylim = y_all)
+     xlim = x_all, ylim = y_all, 
+     asp = 1/ cos(42 * pi/180))
   map("state", "massachusetts", add = TRUE)
 plot(manual_loc_mat$x, manual_loc_mat$y, main = "Manual Locations", 
-     xlim = x_all, ylim = y_all)
+     xlim = x_all, ylim = y_all,
+     asp = 1/ cos(42 * pi/180))
   map("state", "massachusetts", add = TRUE)
 par(mfrow = c(1,1))
 
@@ -86,24 +88,29 @@ grid_land_xy <- as.data.frame(st_coordinates(grid_land))
                                
 par(mfrow = c(2,2))  
 plot(auto_water_xy$X, auto_water_xy$Y, main = "Automated Locations", 
-     xlim = x_all, ylim = y_all)
+     xlim = x_all, ylim = y_all, 
+     asp = 1/ cos(42 * pi/180))
 map("state", "massachusetts", add = TRUE)
 plot(manual_water_xy$X, manual_water_xy$Y, main = "Manual Locations", 
-     xlim = x_all, ylim = y_all)
+     xlim = x_all, ylim = y_all, 
+     asp = 1/ cos(42 * pi/180))
 map("state", "massachusetts", add = TRUE)
 plot(grid_water_xy$X, grid_water_xy$Y, main = "Grid Locations", 
-     xlim = x_all, ylim = y_all)
+     xlim = x_all, ylim = y_all, 
+     asp = 1/ cos(42 * pi/180))
 map("state", "massachusetts", add = TRUE)
 par(mfrow = c(1,1))
-# 
-# par(mfrow = c(2,2))
-# plot(auto_water_xy$X, auto_water_xy$Y, main = "Automated Locations", xlab = "Longitude", ylab = "Latitude",
-#      xlim = x_all, ylim = y_all)
-# map("state", "massachusetts", add = TRUE)
-# plot(manual_water_xy$X, manual_water_xy$Y, main = "Manual Locations", xlab = "Longitude", ylab = "Latitude",
-#      xlim = x_all, ylim = y_all)
-# map("state", "massachusetts", add = TRUE)
-# par(mfrow = c(1,1))
+
+par(mfrow = c(2,2))
+plot(auto_water_xy$X, auto_water_xy$Y, main = "Automated Locations", xlab = "Longitude", ylab = "Latitude",
+     xlim = x_all, ylim = y_all, 
+     asp = 1/ cos(42 * pi/180))
+map("state", "massachusetts", add = TRUE)
+plot(manual_water_xy$X, manual_water_xy$Y, main = "Manual Locations", xlab = "Longitude", ylab = "Latitude",
+     xlim = x_all, ylim = y_all, 
+     asp = 1/ cos(42 * pi/180))
+map("state", "massachusetts", add = TRUE)
+par(mfrow = c(1,1))
 
 # Dataframe creation for MCMC ---------------------------------------------------
 
@@ -120,9 +127,12 @@ X_2 <- auto_water_xy
 nn_X_2 <- nncross(auto_water_xy, grid_ppp)
 
 par(mfrow = c(2,2))
-plot(X_grid$x, X_grid$y, xlim = x_bound, ylim = y_bound, main = "Grid")
-plot(X_1, xlim = x_bound, ylim = y_bound, main = "Source 1 Point Process")
-plot(X_2, xlim = x_bound, ylim = y_bound, main = "Source 2 Point Process")
+plot(X_grid$x, X_grid$y, xlim = x_bound, ylim = y_bound, main = "Grid", , 
+     asp = 1/ cos(42 * pi/180))
+plot(X_1, xlim = x_bound, ylim = y_bound, main = "Source 1 Point Process", , 
+     asp = 1/ cos(42 * pi/180))
+plot(X_2, xlim = x_bound, ylim = y_bound, main = "Source 2 Point Process", 
+     , asp = 1/ cos(42 * pi/180))
 par(mfrow = c(1,1))
 
 # MCMC --------------------------------------------------------------------------
@@ -448,18 +458,21 @@ plot(manual_water_xy$X,
   map("state", "massachusetts", add = TRUE)
 
 par(mfrow = c(1,1))
-# 
-# quilt.plot(
-#   grid_coords$x, 
-#   grid_coords$y, 
-#   log(lambda_mean), 
-#   main = "Fused Data Posterior Intensity Surface", 
-#   xlab = "Longitude",
-#   ylab = "Latitude",
-#   nx = 20, 
-#   ny = 20
-# )
-# map("state", "massachusetts", add = TRUE)
+
+quilt.plot(
+  grid_coords$x,
+  grid_coords$y,
+  log(lambda_mean),
+  main = "Fused Data Posterior Intensity Surface",
+  xlab = "Longitude",
+  ylab = "Latitude",
+  nx = 20,
+  ny = 20,
+  asp = 1 / cos(42 * pi/180), 
+  xlim = range(grid_coords$x),
+  ylim = range(grid_coords$y)
+)
+map("state", "massachusetts", add = TRUE)
 
 # Posterior g map ---------------------------------------------------------------
 posterior_g <- matrix(NA, nrow = nrow(grid_coords), ncol = (iters - burnin))
@@ -496,17 +509,21 @@ quilt.plot(
 map("state", "massachusetts", add = TRUE)
 par(mfrow = c(1,1))
 
-# quilt.plot(
-#   grid_coords$x,
-#   grid_coords$y,
-#   log(g_mean),
-#   main = "Posterior Additive Calibration Parameter Intensity Surface",
-#   xlab = "Longitude",
-#   ylab = "Longitude",
-#   nx = 20, 
-#   ny = 20
-# )
-# map("state", "massachusetts", add = TRUE)
+quilt.plot(
+  grid_coords$x,
+  grid_coords$y,
+  log(g_mean),
+  main = "Posterior Additive Calibration Parameter Intensity Surface",
+  xlab = "Longitude",
+  ylab = "Longitude",
+  nx = 20,
+  ny = 20,
+  asp = 1 / cos(42 * pi/180), 
+  xlim = range(grid_coords$x),
+  ylim = range(grid_coords$y)
+)
+
+map("state", "massachusetts", add = TRUE)
 
 # Trace Plots -------------------------------------------------------------------
 par(mfrow = c(1,1))
@@ -589,18 +606,21 @@ quilt.plot(grid_coords$x,
            ny = 20)
   map("state", "massachusetts", add = TRUE)
 par(mfrow = c(1,1))
-# 
-# quilt.plot(
-#   grid_coords$x,
-#   grid_coords$y,
-#   log(t(lambda1_mean)),
-#   main = "Manual Data Posterior Intensity Surface",
-#   xlab = "Longitude",
-#   ylab = "Latitude",
-#   nx = 20, 
-#   ny = 20
-# )
-# map("state", "massachusetts", add = TRUE)
+
+quilt.plot(
+  grid_coords$x,
+  grid_coords$y,
+  log(t(lambda1_mean)),
+  main = "Manual Data Posterior Intensity Surface",
+  xlab = "Longitude",
+  ylab = "Latitude",
+  nx = 20,
+  ny = 20,
+  asp = 1 / cos(42 * pi/180), 
+  xlim = range(grid_coords$x),
+  ylim = range(grid_coords$y)
+)
+map("state", "massachusetts", add = TRUE)
 
 # Only Source 2 Sim ---------------------------------------------------------------
 
@@ -685,15 +705,18 @@ quilt.plot(grid_coords$x,
 map("state", "massachusetts", add = TRUE)
 par(mfrow = c(1,1))
 
-# quilt.plot(grid_coords$x, 
-#            grid_coords$y, 
-#            log(t(lambda2_mean)),
-#            main = "Automated Data Posterior Intensity Surface",
-#            xlab = "Longitude",
-#            ylab = "Latitude",
-#            nx = 20, 
-#            ny = 20)
-# map("state", "massachusetts", add = TRUE)
+quilt.plot(grid_coords$x,
+           grid_coords$y,
+           log(t(lambda2_mean)),
+           main = "Automated Data Posterior Intensity Surface",
+           xlab = "Longitude",
+           ylab = "Latitude",
+           nx = 20,
+           ny = 20, 
+           asp = 1 / cos(42 * pi/180), 
+           xlim = range(grid_coords$x),
+           ylim = range(grid_coords$y))
+map("state", "massachusetts", add = TRUE)
 
 # Estimating whale counts -------------------------------------------------------
 # Fused

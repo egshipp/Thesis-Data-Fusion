@@ -113,7 +113,7 @@ quantile(z_post2, c(.025,0.975))
 ## Posterior Plots
 
 # Posterior lambda for both sources
-posterior_lambda <- matrix(NA, nrow = 100, ncol = (iters-burnin))
+posterior_lambda <- matrix(NA, nrow = nrow(data$X_grid), ncol = (iters-burnin))
     
     for(m in 1:(iters-burnin)){
       beta_m <- beta_post[,m]
@@ -147,7 +147,7 @@ posterior_lambda_source1 <- matrix(NA, nrow = nrow(data$X_grid), ncol = (iters-b
                                byrow = FALSE)
     
 # Just source 2
-posterior_lambda_source2 <- matrix(NA, nrow = nrow(data$X_grid), ncol = (iters-burnin))
+posterior_lambda_source2 <- matrix(NA, nrow(data$X_grid), ncol = (iters-burnin))
     
     for(m in 1:(iters-burnin)){
       beta_m2 <- beta_post2[,m]
@@ -165,7 +165,15 @@ posterior_lambda_source2 <- matrix(NA, nrow = nrow(data$X_grid), ncol = (iters-b
                                nrow = data$grid_res, 
                                ncol = data$grid_res, 
                                byrow = FALSE)
+all_log_values <- c(
+  log(lambda),
+  log(lambda_mean),
+  log(lambda_mean1),
+  log(lambda_mean2),
+  log(g_mean)
+)
 
+zlim <- range(all_log_values, na.rm = TRUE)
 # Plotting
 par(mfrow = c(2,2))
 quilt.plot(grid_coords$x,
@@ -173,32 +181,36 @@ quilt.plot(grid_coords$x,
            log(lambda), 
            nx = 10,
            ny = 10,
-           col = terrain.colors(100),
-           main = "True Intensity")
+           col = topo.colors(100),
+           zlim = zlim,
+           main = "True Intensity Intensity Surface")
 
 quilt.plot(grid_coords$y,
            grid_coords$x,
            log(lambda_mean),
            nx = 10, 
            ny = 10, 
-           col = terrain.colors(100),
-           main = "Posterior Mean Fused")
+           col = topo.colors(100),
+           zlim = zlim,
+           main = "Fused Data Posterior Intensity Surface")
 
 quilt.plot(grid_coords$y,
            grid_coords$x,
            log(lambda_mean1),
            nx = 10, 
            ny = 10, 
-           col = terrain.colors(100),
-           main = "Posterior Mean Source 1 Only")
+           col = topo.colors(100),
+           zlim = zlim,
+           main = "Source 1 Posterior Intensity Surface")
 
 quilt.plot(grid_coords$y,
            grid_coords$x,
            log(lambda_mean2),
            nx = 10, 
            ny = 10, 
-           col = terrain.colors(100),
-           main = "Posterior Mean Source 2 Only")
+           col = topo.colors(100),
+           zlim = zlim,
+           main = "Source 2 Posterior Intensity Surface")
 par(mfrow = c(1,1))
 
 # Posterior g map ---------------------------------------------------------------
@@ -219,6 +231,7 @@ posterior_g <- matrix(NA, nrow = nrow(data$X_grid), ncol = (iters - burnin))
                log(g_mean),
                nx = 10,
                ny = 10, 
+               main = "Posterior Additive Calibration Parameter Intensity Surface",
                col = topo.colors(100))
     
     quilt.plot(grid_coords$y, 
@@ -227,20 +240,20 @@ posterior_g <- matrix(NA, nrow = nrow(data$X_grid), ncol = (iters - burnin))
                nx = 10,
                ny = 10, 
                col = terrain.colors(100),
+               zlim = zlim,
                main = "Posterior Mean Intensity")
 par(mfrow = c(1,1))
     
 # Multiple simulations for credible intervals ------------------------------------
 load("n_sims_df.RData")
-load("n_20_sims_df.RData")
 
 #Beta 
 
-beta0_covered <- (n_sims_df$beta0_lower <= 1 &
-                    n_sims_df$beta0_upper >= 1)
+beta0_covered <- (n_sims_df$beta0_lower <= 1.5 &
+                    n_sims_df$beta0_upper >= 1.5)
 
-covered_beta0 <- mean(n_sims_df$beta0_lower <= 1 &
-                        n_sims_df$beta0_upper >= 1)
+covered_beta0 <- mean(n_sims_df$beta0_lower <= 1.5 &
+                        n_sims_df$beta0_upper >= 1.5)
 
 beta1_covered <- (n_sims_df$beta1_lower <= 3 &
                     n_sims_df$beta1_upper >= 3)
@@ -252,8 +265,8 @@ covered_beta1
 
 #sigma_2
 
-covered_sigma2 <- mean(n_sims_df$sigma2_lower <= 0.25 &
-                         n_sims_df$sigma2_upper >=0.25)
+covered_sigma2 <- mean(n_sims_df$sigma2_lower <= 0.10 &
+                         n_sims_df$sigma2_upper >=0.10)
 covered_sigma2
 
 #tau_2
@@ -273,4 +286,59 @@ covered_count <- mean(n_sims_df$count_lower <= n_sims_df$actual_count &
       n_sims_df$count_upper >= n_sims_df$actual_count)
 
 covered_count
+
+# Expected posterior counts -------------------------------------------------------
+actual_count <- sum(lambda * data$cell_area, na.rm = TRUE)
+actual_count
+n_draws <- ncol(posterior_lambda)
+expected_total_per_draw_fused <- numeric(n_draws)
+
+for (m in 1:n_draws) {
+  expected_total_per_draw_fused[m] <- sum(posterior_lambda[, m] * data$cell_area, na.rm = TRUE)
+}
+
+expected_mean_fused <- mean(expected_total_per_draw_fused)
+expected_sd_fused   <- sd(expected_total_per_draw_fused)
+
+count_lower <-  quantile(expected_total_per_draw_fused, 0.025)
+count_upper <- quantile(expected_total_per_draw_fused, 0.975)
+
+expected_mean_fused
+expected_sd_fused 
+count_lower
+count_upper
+
+expected_total_per_draw_fused1 <- numeric(n_draws)
+
+for (m in 1:n_draws) {
+  expected_total_per_draw_fused1[m] <- sum(posterior_lambda_source1[, m] * data$cell_area, na.rm = TRUE)
+}
+
+expected_mean_fused1 <- mean(expected_total_per_draw_fused1)
+expected_sd_fused1  <- sd(expected_total_per_draw_fused1)
+
+count_lower1 <-  quantile(expected_total_per_draw_fused1, 0.025)
+count_upper1 <- quantile(expected_total_per_draw_fused1, 0.975)
+
+expected_mean_fused1
+expected_sd_fused1
+count_lower1
+count_upper1
+
+expected_total_per_draw_fused2 <- numeric(n_draws)
+
+for (m in 1:n_draws) {
+  expected_total_per_draw_fused2[m] <- sum(posterior_lambda_source2[, m] * data$cell_area, na.rm = TRUE)
+}
+
+expected_mean_fused2 <- mean(expected_total_per_draw_fused2)
+expected_sd_fused2  <- sd(expected_total_per_draw_fused2)
+
+count_lower2 <-  quantile(expected_total_per_draw_fused2, 0.025)
+count_upper2 <- quantile(expected_total_per_draw_fused2, 0.975)
+
+expected_mean_fused2
+expected_sd_fused2
+count_lower2
+count_upper2
 
