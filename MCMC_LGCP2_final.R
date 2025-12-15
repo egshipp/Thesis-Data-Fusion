@@ -74,7 +74,12 @@ lambda_im <- im(lambda, xcol = x_seq, yrow = y_seq)
 
 lgcp_sim <- rpoispp(lambda_im)
 
-plot(lgcp_sim, main = "Simulated True Point Process")
+plot(lgcp_sim, main = "Simulated True Point Process",
+     axes = TRUE)
+
+pdf(file = "true_sim.pdf", width = 5, height = 5)
+plot(lgcp_sim$x, lgcp_sim$y, xlim = c(0,10), ylim = c(0,10),  main = "Simulated True Point Process", xlab = "", ylab = "")
+dev.off()
 
 # save(lgcp_sim, file = "lgcp_sim.RData")
 # load("lgcp_sim.RData")
@@ -83,11 +88,11 @@ plot(lgcp_sim, main = "Simulated True Point Process")
 
 lgcp_discretize <- pixellate(lgcp_sim, eps = 1)
 
-par(mfrow = c(1,2))
-image.plot(x_seq, y_seq, cov_field, col = terrain.colors(100), main = "Simulated LGCP")
-points(lgcp_sim)
-plot(lgcp_discretize)
-par(mfrow = c(1,1))
+# par(mfrow = c(1,2))
+# image.plot(x_seq, y_seq, cov_field, col = terrain.colors(100), main = "Simulated LGCP")
+# points(lgcp_sim)
+# plot(lgcp_discretize)
+# par(mfrow = c(1,1))
 
 # Source 1  --------------------------------------------------------------------
 
@@ -115,7 +120,7 @@ lgcp_1_sub2 <- rpoispp(lambda_1[sub_window2])
 
 lgcp_1 <- superimpose(lgcp_1_sub1, lgcp_1_sub2, W = owin(c(0,10), c(0,10)))
 # save(lgcp_1, file = "lgcp_1.RData")
-# load("lgcp_1.RData")
+load("lgcp_1.RData")
 
 par(mfrow=(c(1,2)))
 plot(lgcp_discretize)
@@ -132,6 +137,10 @@ points(lgcp_1, col = "red", pch = 16)
 rect(x_min_subwindow1, y_min_subwindow1, x_max_subwindow1, y_max_subwindow1, border = "blue", lwd = 2)
 rect(x_min_subwindow2, y_min_subwindow2, x_max_subwindow2, y_max_subwindow2, border = "blue", lwd = 2)
 
+pdf(file = "source1_sim.pdf", width = 5, height = 5)
+plot(lgcp_1$x, lgcp_1$y, xlim = c(0,10), ylim = c(0,10),  main = "Simulated Source 1 Realization", xlab = "", ylab = "")
+dev.off()
+
 # Source 2 ----------------------------------------------------------------------
 
 tau_2 <- 0.4
@@ -147,7 +156,7 @@ lambda_2 <- lgcp_discretize * exp_g
 
 lgcp_2 <- rpoispp(lambda_2)
 # save(lgcp_2, file = "lgcp_2.RData")
-# load("lgcp_2.RData")
+load("lgcp_2.RData")
 
 par(mfrow=(c(1,2)))
 plot(lgcp_discretize)
@@ -171,6 +180,9 @@ plot(lgcp_1, main = "Simulated Source 1 Realization")
 plot(lgcp_2, main = "Simulated Source 2 Realization")
 par(mfrow = c(1,1))
 
+pdf(file = "source2_sim.pdf", width = 5, height = 5)
+plot(lgcp_2$x, lgcp_2$y, xlim = c(0,10), ylim = c(0,10),  main = "Simulated Source 2 Realization", xlab = "", ylab = "")
+dev.off()
 
 # Data frame creation ----------------------------------------------------------
 

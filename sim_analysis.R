@@ -176,41 +176,50 @@ all_log_values <- c(
 zlim <- range(all_log_values, na.rm = TRUE)
 # Plotting
 par(mfrow = c(2,2))
+
+pdf(file = "true_intensity.pdf", width = 5, height = 5)
 quilt.plot(grid_coords$x,
            grid_coords$y,
            log(lambda), 
            nx = 10,
            ny = 10,
-           col = topo.colors(100),
+           col = viridis(100),
            zlim = zlim,
-           main = "True Intensity Intensity Surface")
+           main = "True Intensity Surface")
+dev.off()
 
+pdf(file = "fused_intensity_sim.pdf", width = 5, height = 5)
 quilt.plot(grid_coords$y,
            grid_coords$x,
            log(lambda_mean),
            nx = 10, 
            ny = 10, 
-           col = topo.colors(100),
+           col = viridis(100),
            zlim = zlim,
            main = "Fused Data Posterior Intensity Surface")
+dev.off()
 
+pdf(file = "source1_intensity_sim.pdf", width = 5, height = 5)
 quilt.plot(grid_coords$y,
            grid_coords$x,
            log(lambda_mean1),
            nx = 10, 
            ny = 10, 
-           col = topo.colors(100),
+           col = viridis(100),
            zlim = zlim,
            main = "Source 1 Posterior Intensity Surface")
+dev.off()
 
+pdf(file = "source2_intensity_sim.pdf", width = 5, height = 5)
 quilt.plot(grid_coords$y,
            grid_coords$x,
            log(lambda_mean2),
            nx = 10, 
            ny = 10, 
-           col = topo.colors(100),
+           col = viridis(100),
            zlim = zlim,
            main = "Source 2 Posterior Intensity Surface")
+dev.off()
 par(mfrow = c(1,1))
 
 # Posterior g map ---------------------------------------------------------------
@@ -226,20 +235,23 @@ posterior_g <- matrix(NA, nrow = nrow(data$X_grid), ncol = (iters - burnin))
 
   # Plot posterior mean intensity (on log scale)
   par(mfrow = c(2,2))
+
+pdf(file = "g_intensity_sim.pdf", width = 5, height = 5)
     quilt.plot(grid_coords$y, 
                grid_coords$x, 
                log(g_mean),
                nx = 10,
                ny = 10, 
-               main = "Posterior Additive Calibration Parameter Intensity Surface",
-               col = topo.colors(100))
-    
+               main = "Posterior Calibration Parameter Intensity Surface",
+               col = viridis(100))
+dev.off()
+
     quilt.plot(grid_coords$y, 
                grid_coords$x, 
                log(lambda_mean),
                nx = 10,
                ny = 10, 
-               col = terrain.colors(100),
+               col = viridis(100),
                zlim = zlim,
                main = "Posterior Mean Intensity")
 par(mfrow = c(1,1))
